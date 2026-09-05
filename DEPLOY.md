@@ -27,13 +27,33 @@ ufw เปิด 22 · 80 · Nginx Full
 | จัดการโปรเซส | **systemd** | เครื่องนี้ใช้ systemd อยู่แล้ว (`ct-live.service`) ไม่ต้องลง pm2 เพิ่ม |
 | build หน้าเว็บ | **บน GitLab runner** ไม่ใช่บนเซิร์ฟเวอร์ | `vite build` กิน RAM เยอะ ถ้า build บนเครื่องจะไปแย่ง RAM ของ 324 เว็บ |
 | ส่งไฟล์ | **rsync ผ่าน SSH** | ไม่ต้องลง Docker registry หรือ git บนเครื่อง |
-| TLS | **ยังไม่ตั้ง** | เครื่องไม่ได้ฟังพอร์ต 443 เลยทั้งที่มี 324 เว็บ แปลว่า TLS น่าจะจบที่ Cloudflare อยู่แล้ว ต้องยืนยันก่อน |
+| TLS | **Cloudflare ไม่ใช้ certbot** | ยืนยันแล้ว 5 ก.ย. 2569 · `keyded.yoalink.com` ชี้ไป 104.21.38.65 / 172.67.219.183 ซึ่งเป็น IP ของ Cloudflare · เครื่องฟังแค่พอร์ต 80 เหมือนอีก 324 เว็บ |
+
+## โดเมนและ Cloudflare
+
+**`keyded.yoalink.com`** · ตรวจ DNS แล้วชี้ไป Cloudflare เรียบร้อย (104.21.38.65 · 172.67.219.183)
+
+**ที่ต้องตั้งใน Cloudflare**
+
+| หัวข้อ | ค่า | เพราะ |
+|---|---|---|
+| A record | `45.32.122.181` เมฆสีส้ม (Proxied) | ต้องยืนยันว่าชี้มาเครื่องนี้จริง |
+| SSL/TLS mode | **Flexible** | เครื่องปลายทางไม่ได้ฟัง 443 เลยทั้ง 324 เว็บ ถ้าตั้ง Full จะได้ 521 ทันที |
+| Cache | ปล่อยค่าเริ่มต้น | origin ส่ง `no-cache` ให้ `index.html` และ `no-store` ให้ `/api/` อยู่แล้ว |
+
+**ข้อควรรู้สองอย่าง**
+
+- **Flexible แปลว่าช่วง Cloudflare → เครื่องเราเป็น HTTP ธรรมดา** ไม่เข้ารหัส · เว็บอีก 324 ตัวก็เป็นแบบนี้อยู่แล้ว แต่แอปนี้มีรหัสผ่านผู้ใช้กับ JWT วิ่งผ่าน ถ้าวันหนึ่งอยากรัดกุมกว่านี้ ทางที่ถูกคือเปิด 443 ด้วย Cloudflare Origin Certificate (ฟรี อายุ 15 ปี ไม่ต้องต่ออายุแบบ certbot) แล้วเปลี่ยนเป็น Full (strict)
+- **Cloudflare แผนฟรี/Pro ตัดคำขอที่ 100 วินาที** ค้นคำกว้างวัดได้สูงสุด 43 วินาที ยังไม่ชน แต่ถ้าวันหนึ่งช้ากว่านั้นผู้ใช้จะเจอ error 524 ของ Cloudflare ไม่ใช่ของเรา
+
+**nginx แปลง IP กลับให้แล้ว** — ถ้าไม่ทำ `$remote_addr` จะเป็น IP ของ Cloudflare ทุกคน
+แล้วระบบจำกัดคำขอรายไอพี (CLAUDE.md เรื่องความปลอดภัย) จะมองคนทั้งโลกเป็นคนเดียว
+ช่วง IP ในไฟล์ config ดึงจาก `cloudflare.com/ips-v4` เมื่อ 5 ก.ย. 2569 · **Cloudflare เพิ่มช่วงใหม่เป็นระยะ ควรอัปเดตปีละครั้ง**
 
 ## ยังตอบไม่ได้ ต้องรู้ก่อนเริ่ม
 
-1. **จะใช้โดเมนอะไร** — nginx บนเครื่องนี้แยกเว็บด้วย `server_name` ทั้งหมด ถ้าไม่มีโดเมนจะเข้าด้วย IP ไม่ได้เพราะไปชนกับ default server ของเว็บอื่น
-2. **Cloudflare อยู่หน้าเครื่องนี้ใช่ไหม** — ถ้าใช่ TLS จบที่นั่น เราไม่ต้องทำอะไร · ถ้าไม่ใช่ ต้องใช้ certbot ที่ติดตั้งไว้แล้วออกใบรับรอง
-3. **ผู้ใช้ที่จะให้ GitLab ใช้ deploy** — ตอนนี้เครื่องมี `root` กับ `linuxuser` · **ไม่ควรให้ CI ใช้ root** ควรสร้าง `keyded` แยก
+1. **ผู้ใช้ที่จะให้ GitLab ใช้ deploy** — ตอนนี้เครื่องมี `root` กับ `linuxuser` · **ไม่ควรให้ CI ใช้ root** ควรสร้าง `keyded` แยก
+2. **ยืนยันว่า A record ของ `keyded.yoalink.com` ชี้มาที่ 45.32.122.181** — ตอนนี้เห็นแค่ว่าผ่าน Cloudflare แต่มองไม่เห็นว่าปลายทางเป็นเครื่องไหน
 
 ## ขั้นตอนติดตั้งครั้งแรก (ทำครั้งเดียว บนเซิร์ฟเวอร์)
 
@@ -65,7 +85,6 @@ systemctl daemon-reload && systemctl enable --now keyded-api
 
 # 5. nginx — เพิ่มไฟล์เดียว ไม่แตะของเดิม
 cp deploy/nginx-keyded.conf /etc/nginx/sites-available/keyded
-sed -i 's/DOMAIN_HERE/โดเมนจริง/' /etc/nginx/sites-available/keyded
 ln -s /etc/nginx/sites-available/keyded /etc/nginx/sites-enabled/keyded
 nginx -t && systemctl reload nginx      # nginx -t ต้องผ่านก่อนเสมอ
 
@@ -86,7 +105,7 @@ cd /opt/keyded/backend && sudo -u keyded node src/db/seed-admin.js you@example.c
 | `SSH_PRIVATE_KEY` | private key ที่คู่กับ public key ใน `/opt/keyded/.ssh/authorized_keys` |
 | `DEPLOY_HOST` | `45.32.122.181` |
 | `DEPLOY_USER` | `keyded` |
-| `DEPLOY_DOMAIN` | โดเมนจริง |
+| `DEPLOY_DOMAIN` | `keyded.yoalink.com` |
 
 **สร้าง key คู่ใหม่สำหรับ CI โดยเฉพาะ** ห้ามใช้ `/root/.ssh/id_ed25519` ที่มีอยู่แล้ว
 เพราะคีย์นั้นเข้าถึงทั้งเครื่องได้ ถ้าหลุดจาก GitLab คือเสีย 324 เว็บพร้อมกัน
@@ -117,8 +136,8 @@ push ขึ้น main
 ## ตรวจหลัง deploy ทุกครั้ง
 
 ```bash
-curl -I https://โดเมน/                     # index.html ต้องเป็น no-cache
-curl -s https://โดเมน/api/health            # ต้องได้ {"ok":true}
+curl -I https://keyded.yoalink.com/          # index.html ต้องเป็น no-cache
+curl -s https://keyded.yoalink.com/api/health # ต้องได้ {"ok":true}
 systemctl status keyded-api --no-pager
 journalctl -u keyded-api -n 30 --no-pager
 free -h                                     # RAM ต้องยังเหลือให้เว็บอื่น
@@ -130,7 +149,7 @@ curl -I https://เว็บเดิมสักอัน/             # ยื
 ## ที่ยังไม่ได้ทำ ต้องทำก่อนเปิดให้คนนอกใช้
 
 - **สำรองฐานข้อมูล** — `pg_dump` รายวันเก็บไว้นอกเครื่อง · ตอนนี้ยังไม่มี
-- **TLS** — รอคำตอบว่า Cloudflare อยู่หน้าเครื่องไหม
+- **ปิดทางเข้าตรงที่ IP** — ตอนนี้ใครรู้ IP เครื่องก็ยิงตรงข้าม Cloudflare ได้ ถ้าจะรัดกุมให้เพิ่ม `allow` เฉพาะช่วง IP ของ Cloudflare ใน server block ของเรา (อีก 324 เว็บไม่ได้ทำ จึงยังไม่ทำให้เป็นค่าเริ่มต้น)
 - **ปิด `/auth/register`** หรือใส่โค้ดเชิญ — ตอนนี้ใครก็สมัครได้ และทุกการสมัครคือโควตาที่เสียเงินจริง
 - **จำกัดขนาด log** — `search_logs` โตทุกการค้นหา ควรมีแผนตัดของเก่า
 - **เฝ้ายอด DataForSEO** — ถ้าเงินหมดระบบจะพังเงียบๆ ควรแจ้งเตือนตอนต่ำกว่าเกณฑ์

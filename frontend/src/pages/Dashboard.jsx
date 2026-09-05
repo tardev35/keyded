@@ -13,7 +13,6 @@ export default function Dashboard() {
   const { user, patchUser } = useAuth();
   const [markets, setMarkets] = useState(null);
   const [market, setMarket] = useState({ locationCode: 2764, languageCode: "th" });
-  const [elapsed, setElapsed] = useState(0);
   const [focused, setFocused] = useState(null);
 
   const { result, loading, error, run } = useKeywordSearch({
@@ -28,13 +27,6 @@ export default function Dashboard() {
       setMarket({ locationCode: r.data.defaultLocation, languageCode: r.data.defaultLanguage });
     });
   }, []);
-
-  useEffect(() => {
-    if (!loading) return undefined;
-    setElapsed(0);
-    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(timer);
-  }, [loading]);
 
   useEffect(() => setFocused(null), [result]);
 
@@ -69,15 +61,7 @@ export default function Dashboard() {
         <div className="rounded-xl border border-down/40 bg-surface px-4 py-3 text-sm text-down">{error}</div>
       ) : null}
 
-      {loading ? (
-        <SkeletonTable
-          note={
-            elapsed > 20
-              ? "กำลังถาม Google Ads… " + elapsed + " วินาที · คำกว้างใช้เวลาถึง 45 วินาที อย่าเพิ่งกดซ้ำ"
-              : "กำลังถาม Google Ads… " + elapsed + " วินาที"
-          }
-        />
-      ) : null}
+      {loading ? <SkeletonTable /> : null}
 
       {!loading && result ? (
         <>

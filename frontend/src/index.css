@@ -56,3 +56,33 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* แถบวิ่งตอนรอผล — ไม่รู้ว่าจะเสร็จเมื่อไหร่จริงๆ จึงวิ่งวนไม่จบ
+   ห้ามทำเป็นแถบเปอร์เซ็นต์ เพราะจะเป็นการบอกความคืบหน้าที่เราไม่รู้ */
+@keyframes keyded-sweep {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(420%); }
+}
+
+@keyframes keyded-shimmer {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+
+.keyded-sweep {
+  animation: keyded-sweep 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.keyded-shimmer {
+  @apply bg-line;
+  animation: keyded-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keyded-sweep,
+  .keyded-shimmer {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    opacity: 0.6;
+  }
+}

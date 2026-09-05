@@ -41,6 +41,7 @@ const val = (f, d) => { const a = args.find((x) => x.startsWith(f + "=")); retur
 const DATES = has("--dates");
 const LABS = has("--labs");
 const LABS_LIMIT = Number(val("--limit", 100)) || 100;
+const LABS_SEEDS = val("--seeds", "").split(",").map((x) => x.trim()).filter(Boolean);
 const DATE_FROM = val("--from", "2024-08-01");
 const RUN_ALL = has("--all");
 const ACCOUNT_ONLY = has("--account");
@@ -142,7 +143,8 @@ if (DATES) plan.push(
   ["date_from · search_volume หลายคำพร้อมกัน", 1],
 );
 // Labs คิดตามจำนวนผลลัพธ์ $0.00012/คำ ไม่ใช่ต่อคำขอ (อ่านจากตารางราคาของบัญชี)
-if (LABS) plan.push(
+if (LABS && LABS_SEEDS.length) plan.push(["labs keyword_suggestions x " + LABS_SEEDS.length + " seed", LABS_SEEDS.length]);
+else if (LABS) plan.push(
   ["labs keyword_suggestions limit=" + LABS_LIMIT, 1],
   ["labs related_keywords limit=" + LABS_LIMIT, 1],
 );
@@ -292,7 +294,30 @@ if (RUN_BURST) {
   console.log("");
 }
 
-if (LABS) {
+// โหมดหลาย seed ใช้เทียบว่าคำแบรนด์แต่ละตัวได้คำมากน้อยแค่ไหน ซึ่งเป็นเคสหลักของผู้ใช้จริง
+if (LABS && LABS_SEEDS.length) {
+  const norm = (k) => String(k).toLowerCase().replace(/[-_.]/g, " ").replace(/s+/g, "");
+  console.log("  " + pad("seed", 14) + lpad("ได้มา", 7) + lpad("ทั้งหมด", 9) + lpad("ไม่ซ้ำ", 8) + lpad("volume", 12) + lpad("cost", 10) + lpad("ms", 7));
+  let total = 0;
+  for (const seed of LABS_SEEDS) {
+    const r = await call("/dataforseo_labs/google/keyword_suggestions/live",
+      [{ keyword: seed, location_code: LOCATION, language_code: LANGUAGE, limit: LABS_LIMIT }]);
+    save("labs-" + seed.replace(/[^a-z0-9]+/gi, "-"), r.json);
+    const e = statusOf(r);
+    if (e) { console.log("  " + pad(seed, 14) + "  x " + e); continue; }
+    const res = task(r)?.result?.[0] ?? {};
+    const items = res.items ?? [];
+    const uniq = new Set(items.map((x) => norm(x.keyword)));
+    const vol = [...new Map(items.map((x) => [norm(x.keyword), x])).values()]
+      .reduce((a, x) => a + (x.keyword_info?.search_volume || 0), 0);
+    total += Number(r.json.cost) || 0;
+    console.log("  " + pad(seed, 14) + lpad(items.length, 7) + lpad(res.total_count ?? "—", 9) +
+      lpad(uniq.size, 8) + lpad(vol.toLocaleString(), 12) + lpad(money(r.json.cost), 10) + lpad(r.ms, 7));
+  }
+  console.log("");
+  console.log("  รวมค่าใช้จ่าย " + money(total) + " จาก " + LABS_SEEDS.length + " seed");
+  console.log("");
+} else if (LABS) {
   const seed = val("--seed", "7-11 game");
   const report = (name, r, path) => {
     save(name, r.json);
