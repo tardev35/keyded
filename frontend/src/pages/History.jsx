@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../lib/api.js";
 import { fmtNumber } from "../lib/format.js";
 
@@ -26,6 +27,7 @@ function Stat({ label, value, foot, tone = "" }) {
 }
 
 export default function History() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -37,14 +39,15 @@ export default function History() {
   if (!data) return <div className="mx-auto max-w-5xl px-4 py-6 text-sm text-muted">กำลังโหลด…</div>;
 
   const t = data.totals;
-  const showCost = Boolean(data.showCost);
+  const isAdmin = Boolean(data.isAdmin);
+  const showCost = isAdmin;
   const rate = t.usdThb;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5">
       <div>
         <h1 className="text-lg font-semibold">ประวัติการค้นหา</h1>
-        <p className="text-xs text-muted">บันทึกทุกครั้งไม่ว่าสำเร็จหรือไม่ · ครั้งที่ไม่ถูกหักเครดิตคือครั้งที่ไม่ได้ยิงออกไปใหม่</p>
+        <p className="text-xs text-muted">คลิกที่แถวเพื่อเปิดดูผลเดิม · ผลที่ยังอยู่ในแคชเปิดดูได้ฟรี ไม่หักเครดิต</p>
       </div>
 
       <div className={"grid grid-cols-2 gap-3 " + (showCost ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
@@ -84,7 +87,7 @@ export default function History() {
             <tr>
               <th className="px-3 py-2 text-left font-medium">เวลา</th>
               <th className="px-3 py-2 text-left font-medium">คำค้นหา</th>
-              <th className="px-3 py-2 text-left font-medium">สถานะ</th>
+              {isAdmin ? <th className="px-3 py-2 text-left font-medium">สถานะ</th> : null}
               <th className="px-3 py-2 text-right font-medium">คำที่ได้</th>
               <th className="px-3 py-2 text-right font-medium">เครดิต</th>
               {showCost ? <th className="px-3 py-2 text-right font-medium">ค่าใช้จ่าย</th> : null}
@@ -92,13 +95,28 @@ export default function History() {
             </tr>
           </thead>
           <tbody>
-            {data.items.map((row) => (
-              <tr key={row.id} className="border-b border-line/50 last:border-0">
+            {data.items.map((row) => {
+              // เปิดผลเดิมได้เฉพาะครั้งที่ได้ข้อมูลจริง · ครั้งที่พลาดไม่มีอะไรให้ดู
+              const canOpen = row.status === "ok" || row.status === "cached";
+              return (
+              <tr
+                key={row.id}
+                onClick={canOpen ? () => navigate("/?kw=" + encodeURIComponent(row.keyword) + "&loc=" + row.locationCode + "&lang=" + row.languageCode) : undefined}
+                className={"border-b border-line/50 last:border-0 " + (canOpen ? "cursor-pointer hover:bg-raised" : "")}
+              >
                 <td className="whitespace-nowrap px-3 py-2 text-xs text-muted">
                   {new Date(row.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" })}
                 </td>
-                <td className="px-3 py-2 font-medium">{row.keyword}</td>
-                <td className={"px-3 py-2 text-xs " + (TONE[row.status] || "text-muted")}>{row.statusLabel}</td>
+                <td className="px-3 py-2 font-medium">
+                  {row.keyword}
+                  {canOpen ? <span className="ml-2 text-[10px] text-faint">เปิดดูผล</span> : null}
+                  {!isAdmin && !canOpen ? (
+                    <span className={"ml-2 text-[10px] " + (TONE[row.status] || "text-muted")}>{row.statusLabel}</span>
+                  ) : null}
+                </td>
+                {isAdmin ? (
+                  <td className={"px-3 py-2 text-xs " + (TONE[row.status] || "text-muted")}>{row.statusLabel}</td>
+                ) : null}
                 <td className="px-3 py-2 text-right tabular-nums">{row.resultCount === null ? "—" : fmtNumber(row.resultCount)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{row.creditsUsed}</td>
                 {showCost ? (
@@ -117,9 +135,10 @@ export default function History() {
                   {row.durationMs === null ? "—" : fmtNumber(row.durationMs) + " ms"}
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {data.items.length === 0 ? (
-              <tr><td colSpan={showCost ? 7 : 6} className="px-3 py-10 text-center text-sm text-faint">ยังไม่มีประวัติการค้นหา</td></tr>
+              <tr><td colSpan={isAdmin ? 7 : 5} className="px-3 py-10 text-center text-sm text-faint">ยังไม่มีประวัติการค้นหา</td></tr>
             ) : null}
           </tbody>
         </table>

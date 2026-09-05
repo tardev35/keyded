@@ -43,6 +43,7 @@ export async function myLogs(req, res, next) {
 
     return res.json({
       total: s.n,
+      isAdmin,
       showCost: isAdmin,
       totals: {
         searches: s.n,

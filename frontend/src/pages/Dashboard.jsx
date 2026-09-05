@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../hooks/useAuth.jsx";
 import { useKeywordSearch } from "../hooks/useKeywordSearch.js";
@@ -14,6 +15,8 @@ export default function Dashboard() {
   const [markets, setMarkets] = useState(null);
   const [market, setMarket] = useState({ locationCode: 2764, languageCode: "th" });
   const [focused, setFocused] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const opened = useRef(false);
 
   const { result, loading, error, run } = useKeywordSearch({
     onCredits: ({ creditsLeft }) => {
@@ -24,7 +27,18 @@ export default function Dashboard() {
   useEffect(() => {
     api.get("/keywords/markets").then((r) => {
       setMarkets(r.data);
-      setMarket({ locationCode: r.data.defaultLocation, languageCode: r.data.defaultLanguage });
+      const kw = params.get("kw");
+      const loc = Number(params.get("loc")) || r.data.defaultLocation;
+      const lang = params.get("lang") || r.data.defaultLanguage;
+      setMarket({ locationCode: loc, languageCode: lang });
+
+      // เปิดจากหน้าประวัติ — ยิงครั้งเดียวแล้วล้าง query ทิ้งทันที
+      // ไม่งั้นกดรีเฟรชหรือกดย้อนกลับจะยิงซ้ำโดยที่ผู้ใช้ไม่ได้สั่ง ซึ่งอาจเป็นเงินจริง
+      if (kw && !opened.current) {
+        opened.current = true;
+        setParams({}, { replace: true });
+        run({ path: "/keywords/search", body: { keyword: kw, locationCode: loc, languageCode: lang } });
+      }
     });
   }, []);
 
@@ -105,6 +119,9 @@ export default function Dashboard() {
             source={result.source}
             fetchedAtThai={result.fetchedAtThai}
             ageDays={result.ageDays}
+            engine={result.engine}
+            fellBack={result.fellBack}
+            showSource={unlimited}
           />
 
           <TrendChart
@@ -129,7 +146,7 @@ export default function Dashboard() {
       {!loading && !result && !error ? (
         <div className="grid place-items-center rounded-xl border border-dashed border-line py-16 text-center">
           <div className="text-sm text-muted">พิมพ์คำค้นหาด้านบนเพื่อเริ่มต้น</div>
-          <div className="mt-1 text-xs text-faint">หนึ่งคำค้นหาได้คำที่เกี่ยวข้องหลายร้อยคำ พร้อมกราฟย้อนหลัง 24 เดือน</div>
+          <div className="mt-1 text-xs text-faint">หนึ่งคำค้นหาได้คำที่เกี่ยวข้องหลายสิบถึงหลายร้อยคำ พร้อมกราฟย้อนหลัง</div>
         </div>
       ) : null}
     </div>

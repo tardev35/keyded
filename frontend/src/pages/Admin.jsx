@@ -5,33 +5,48 @@ import { fmtNumber } from "../lib/format.js";
 
 const money = (v) => (v === null || v === undefined ? "—" : "$" + Number(v).toFixed(2));
 
-const ROLE_LABEL = { admin: "ผู้ดูแล", paid: "สมาชิกจ่าย", free: "ฟรี" };
+const ROLE_OPTIONS = [
+  { value: "free", label: "ผู้ใช้" },
+  { value: "paid", label: "ผู้ใช้ (โควตาสูง)" },
+  { value: "admin", label: "ผู้ดูแล" },
+];
+const roleLabel = (v) => ROLE_OPTIONS.find((r) => r.value === v)?.label || v;
 
-function Stat({ label, value, foot }) {
+// ตัด 0 O o 1 l I ออก เพราะรหัสนี้ต้องอ่านออกเสียงหรือพิมพ์ต่อให้คนอื่นได้
+// ถ้าอ่านผิดตัวเดียวคือเข้าระบบไม่ได้แล้วต้องมาตั้งใหม่
+const ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const makePassword = (len = 12) => {
+  const bytes = new Uint32Array(len);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((n) => ALPHABET[n % ALPHABET.length]).join("");
+};
+
+const field =
+  "w-full rounded-lg border border-line bg-page px-3 py-2 text-sm outline-none placeholder:text-faint focus:border-brand";
+
+function Stat({ label, value, foot, tone = "" }) {
   return (
     <div className="rounded-xl border border-line bg-surface px-4 py-3">
       <div className="text-xs text-muted">{label}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
+      <div className={"mt-1 text-xl font-semibold tabular-nums " + tone}>{value}</div>
       {foot ? <div className="mt-0.5 text-[11px] leading-tight text-faint">{foot}</div> : null}
     </div>
   );
 }
 
-const field =
-  "rounded-lg border border-line bg-page px-2.5 py-1.5 text-sm outline-none placeholder:text-faint focus:border-brand";
-
-function AddUserForm({ onDone, onError }) {
+function AddUserForm({ teams, onDone, onError }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ email: "", name: "", password: "", role: "free", creditsDaily: 5 });
+  const [form, setForm] = useState(null);
+
+  const start = () => {
+    setForm({ username: "", name: "", teamId: teams[0]?.id ?? "", role: "free", password: makePassword() });
+    setOpen(true);
+  };
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white"
-      >
+      <button type="button" onClick={start} className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white">
         + เพิ่มผู้ใช้
       </button>
     );
@@ -41,8 +56,13 @@ function AddUserForm({ onDone, onError }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post("/admin/users", { ...form, creditsDaily: Number(form.creditsDaily) });
-      setForm({ email: "", name: "", password: "", role: "free", creditsDaily: 5 });
+      await api.post("/admin/users", {
+        username: form.username.trim().toLowerCase(),
+        name: form.name.trim(),
+        teamId: form.teamId || null,
+        role: form.role,
+        password: form.password,
+      });
       setOpen(false);
       onDone();
     } catch (err) {
@@ -53,42 +73,93 @@ function AddUserForm({ onDone, onError }) {
   };
 
   return (
-    <form onSubmit={submit} className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3">
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">อีเมล</span>
-        <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field + " w-56"} />
+    <form onSubmit={submit} className="w-full max-w-md rounded-xl border border-line bg-surface p-4">
+      <div className="mb-3">
+        <h2 className="text-base font-semibold">เพิ่มผู้ใช้</h2>
+        <p className="mt-0.5 text-xs text-muted">
+          ผู้ดูแลตั้งบัญชีให้โดยตรง ไม่ต้องเปิดหน้าสมัครสมาชิกให้คนนอกเข้าถึง
+        </p>
+      </div>
+
+      <label className="block">
+        <span className="text-xs text-muted">ชื่อผู้ใช้ (ใช้ล็อกอิน)</span>
+        <input
+          required
+          autoFocus
+          value={form.username}
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          placeholder="เช่น somchai"
+          className={field + " mt-1"}
+        />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">ชื่อ</span>
-        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field + " w-40"} />
+
+      <label className="mt-3 block">
+        <span className="text-xs text-muted">ชื่อเล่น (ชื่อที่ขึ้นในระบบ)</span>
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          className={field + " mt-1"}
+        />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">รหัสผ่าน</span>
-        <input required minLength={8} type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={field + " w-44"} />
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-xs text-muted">ทีม</span>
+          <select
+            value={form.teamId}
+            onChange={(e) => setForm({ ...form, teamId: e.target.value })}
+            className={field + " mt-1"}
+          >
+            <option value="">ไม่ระบุ</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-xs text-muted">สิทธิ์</span>
+          <select
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value })}
+            className={field + " mt-1"}
+          >
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <label className="mt-3 block">
+        <span className="text-xs text-muted">รหัสผ่าน (อย่างน้อย 8 ตัว)</span>
+        <input
+          required
+          minLength={8}
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className={field + " mt-1 font-mono"}
+        />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">ระดับ</span>
-        <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={field}>
-          <option value="free">ฟรี</option>
-          <option value="paid">สมาชิกจ่าย</option>
-          <option value="admin">ผู้ดูแล</option>
-        </select>
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">ค้นหา/วัน</span>
-        <input type="number" min={0} value={form.creditsDaily} onChange={(e) => setForm({ ...form, creditsDaily: e.target.value })} className={field + " w-24 text-right tabular-nums"} />
-      </label>
-      <button type="submit" disabled={busy} className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50">
-        {busy ? "กำลังบันทึก…" : "บันทึก"}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-line px-3 py-2 text-sm text-muted">
-        ยกเลิก
-      </button>
+
+      {/* เก็บรหัสเป็น hash เท่านั้น อ่านกลับไม่ได้ ถ้าไม่คัดลอกตอนนี้ต้องตั้งใหม่อย่างเดียว */}
+      <p className="mt-1.5 text-[11px] text-faint">
+        รหัสสุ่มให้แล้ว แก้เองได้ · <span className="font-medium text-muted">ก๊อปเก็บไว้ก่อนกดบันทึก ระบบไม่แสดงซ้ำอีก</span>
+      </p>
+
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-line px-3.5 py-2 text-sm text-muted">
+          ยกเลิก
+        </button>
+        <button type="submit" disabled={busy} className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          {busy ? "กำลังสร้าง…" : "สร้างบัญชี"}
+        </button>
+      </div>
     </form>
   );
 }
 
-function UserRow({ user, me, onPatch, onDelete }) {
+function UserRow({ user, me, teams, onPatch, onDelete }) {
   const [quota, setQuota] = useState(String(user.creditsDaily));
   const isMe = String(user.id) === String(me?.id);
 
@@ -104,7 +175,7 @@ function UserRow({ user, me, onPatch, onDelete }) {
   };
 
   const changePassword = () => {
-    const next = window.prompt("รหัสผ่านใหม่ของ " + user.email + " (อย่างน้อย 8 ตัวอักษร)");
+    const next = window.prompt("รหัสผ่านใหม่ของ " + user.username + " (อย่างน้อย 8 ตัวอักษร)", makePassword());
     if (next === null) return;
     if (next.length < 8) return onPatch(user.id, {}, "รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร");
     onPatch(user.id, { password: next });
@@ -114,13 +185,26 @@ function UserRow({ user, me, onPatch, onDelete }) {
     <tr className="border-b border-line/50 last:border-0">
       <td className="px-3 py-2">
         <div className="flex items-center gap-1.5 font-medium">
-          {user.email}
+          {user.username}
           {isMe ? <span className="rounded border border-line px-1 text-[9px] text-faint">คุณ</span> : null}
         </div>
         <div className="text-[11px] text-faint">
-          {user.name || "ไม่ระบุชื่อ"}
+          {user.name || "ไม่ระบุชื่อเล่น"}
           {user.disabled ? <span className="ml-1.5 text-down">ถูกระงับ</span> : null}
         </div>
+      </td>
+
+      <td className="px-3 py-2">
+        <select
+          value={user.teamId || ""}
+          onChange={(e) => onPatch(user.id, { teamId: e.target.value || null })}
+          className={field + " text-xs"}
+        >
+          <option value="">ไม่ระบุ</option>
+          {teams.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
       </td>
 
       <td className="px-3 py-2">
@@ -130,9 +214,9 @@ function UserRow({ user, me, onPatch, onDelete }) {
           onChange={(e) => onPatch(user.id, { role: e.target.value })}
           className={field + " text-xs disabled:opacity-50"}
         >
-          <option value="free">ฟรี</option>
-          <option value="paid">สมาชิกจ่าย</option>
-          <option value="admin">ผู้ดูแล</option>
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
         </select>
       </td>
 
@@ -167,7 +251,9 @@ function UserRow({ user, me, onPatch, onDelete }) {
       </td>
 
       <td className="px-3 py-2 text-right text-[11px] text-faint">
-        {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" }) : "ยังไม่เคยเข้า"}
+        {user.lastLoginAt
+          ? new Date(user.lastLoginAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" })
+          : "ยังไม่เคยเข้า"}
       </td>
 
       <td className="px-3 py-2">
@@ -201,17 +287,22 @@ export default function Admin() {
   const { user: me } = useAuth();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState(null);
+  const [teams, setTeams] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // โหลดสองส่วนแยกกัน ถ้าฝั่งสถิติล่ม (เช่นต่อ DataForSEO ไม่ได้) ตารางผู้ใช้ต้องยังใช้งานได้
-  // ไม่ใช่จอขาวทั้งหน้า
+  // โหลดแยกกัน ถ้าฝั่งสถิติล่ม (เช่นต่อ DataForSEO ไม่ได้) ตารางผู้ใช้ต้องยังใช้งานได้
   const load = async () => {
     setLoading(true);
-    const [s, u] = await Promise.allSettled([api.get("/admin/stats"), api.get("/admin/users")]);
+    const [s, u, t] = await Promise.allSettled([
+      api.get("/admin/stats"),
+      api.get("/admin/users"),
+      api.get("/admin/teams"),
+    ]);
     if (s.status === "fulfilled") setStats(s.value.data);
     if (u.status === "fulfilled") setUsers(u.value.data.items);
-    const failed = [s, u].find((x) => x.status === "rejected");
+    if (t.status === "fulfilled") setTeams(t.value.data.items);
+    const failed = [s, u, t].find((x) => x.status === "rejected");
     setError(failed ? errorText(failed.reason) : null);
     setLoading(false);
   };
@@ -232,7 +323,7 @@ export default function Admin() {
   };
 
   const remove = async (target) => {
-    if (!window.confirm("ลบบัญชี " + target.email + " ถาวร? ประวัติการค้นหาจะยังอยู่แต่ไม่ผูกกับใคร")) return;
+    if (!window.confirm("ลบบัญชี " + target.username + " ถาวร? ประวัติการค้นหาจะยังอยู่แต่ไม่ผูกกับใคร")) return;
     try {
       setError(null);
       await api.delete("/admin/users/" + target.id);
@@ -244,12 +335,12 @@ export default function Admin() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">ผู้ดูแลระบบ</h1>
           <p className="text-xs text-muted">ตัวเลข 30 วันล่าสุด · อัตราโดนแคชคือตัวคูณกำไรโดยตรง</p>
         </div>
-        <AddUserForm onDone={load} onError={setError} />
+        <AddUserForm teams={teams} onDone={load} onError={setError} />
       </div>
 
       {error ? (
@@ -297,11 +388,12 @@ export default function Admin() {
       ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[52rem] text-sm">
+        <table className="w-full min-w-[56rem] text-sm">
           <thead className="border-b border-line bg-raised text-xs text-muted">
             <tr>
               <th className="px-3 py-2 text-left font-medium">ผู้ใช้</th>
-              <th className="px-3 py-2 text-left font-medium">ระดับ</th>
+              <th className="px-3 py-2 text-left font-medium">ทีม</th>
+              <th className="px-3 py-2 text-left font-medium">สิทธิ์</th>
               <th className="px-3 py-2 text-right font-medium">ค้นหา/วัน</th>
               <th className="px-3 py-2 text-right font-medium">เหลือวันนี้</th>
               <th className="px-3 py-2 text-right font-medium">เข้าล่าสุด</th>
@@ -310,13 +402,13 @@ export default function Admin() {
           </thead>
           <tbody>
             {users?.map((u) => (
-              <UserRow key={u.id} user={u} me={me} onPatch={patch} onDelete={remove} />
+              <UserRow key={u.id} user={u} me={me} teams={teams} onPatch={patch} onDelete={remove} />
             ))}
             {loading && !users ? (
-              <tr><td colSpan={6} className="px-3 py-10 text-center text-sm text-muted">กำลังโหลด…</td></tr>
+              <tr><td colSpan={7} className="px-3 py-10 text-center text-sm text-muted">กำลังโหลด…</td></tr>
             ) : null}
             {users && users.length === 0 ? (
-              <tr><td colSpan={6} className="px-3 py-10 text-center text-sm text-faint">ยังไม่มีผู้ใช้</td></tr>
+              <tr><td colSpan={7} className="px-3 py-10 text-center text-sm text-faint">ยังไม่มีผู้ใช้</td></tr>
             ) : null}
           </tbody>
         </table>
@@ -324,7 +416,8 @@ export default function Admin() {
 
       <p className="pb-6 text-[11px] leading-relaxed text-faint">
         โควตาต่อวันตั้งแยกรายคนได้ · แก้แล้วมีผลทันที ถ้าลดโควตาต่ำกว่าที่เหลืออยู่ ระบบจะตัดยอดคงเหลือลงตาม ·
-        ปุ่มรีเซ็ตคืนโควตาของวันนี้ให้เต็มโดยไม่ต้องรอเที่ยงคืน · ผู้ดูแลค้นหาได้ไม่จำกัดและไม่ถูกหักเครดิต
+        ปุ่มรีเซ็ตคืนโควตาของวันนี้ให้เต็มโดยไม่ต้องรอเที่ยงคืน · ผู้ดูแลค้นหาได้ไม่จำกัดและไม่ถูกหักเครดิต ·
+        รหัสผ่านเก็บเป็น hash อ่านกลับไม่ได้ ลืมแล้วต้องตั้งใหม่อย่างเดียว
       </p>
     </div>
   );

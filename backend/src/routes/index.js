@@ -42,6 +42,7 @@ router.post("/keywords/bulk", requireAuth, searchLimit, keywords.bulkSearch);
 
 router.get("/logs", requireAuth, logs.myLogs);
 
+router.get("/admin/teams", requireAuth, requireAdmin, admin.listTeams);
 router.get("/admin/users", requireAuth, requireAdmin, admin.listUsers);
 router.post("/admin/users", requireAuth, requireAdmin, admin.createUser);
 router.patch("/admin/users/:id", requireAuth, requireAdmin, admin.updateUser);

@@ -42,7 +42,7 @@ function Shell({ children }) {
                 ? "ค้นหาไม่จำกัด"
                 : "เหลือวันนี้ " + (user?.creditsLeft ?? 0) + "/" + (user?.creditsDaily ?? 0)}
             </span>
-            <span className="hidden text-xs text-muted md:block">{user?.email}</span>
+            <span className="hidden text-xs text-muted md:block">{user?.name || user?.username}{user?.teamName ? " · " + user.teamName : ""}</span>
             <ThemeToggle />
             <button
               type="button"
@@ -72,8 +72,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login mode="login" />} />
-          <Route path="/register" element={<Login mode="register" />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/" element={<Protected><Dashboard /></Protected>} />
           <Route path="/history" element={<Protected><History /></Protected>} />
           <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />

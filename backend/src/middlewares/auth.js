@@ -16,7 +16,7 @@ export async function requireAuth(req, res, next) {
   if (decoded.typ === "refresh") return res.status(401).json({ error: "โทเคนไม่ถูกต้อง" });
 
   const { rows } = await query(
-    "SELECT id, email, name, role, credits_daily, credits_left, disabled_at FROM users WHERE id = $1",
+    "SELECT id, username, name, role, credits_daily, credits_left, disabled_at FROM users WHERE id = $1",
     [decoded.sub]
   );
   const user = rows[0];

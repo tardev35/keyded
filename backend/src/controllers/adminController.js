@@ -3,18 +3,23 @@ import { query } from "../db/index.js";
 import { STATUS_TH } from "./logController.js";
 import { fetchAccount } from "../services/dataforseo.js";
 import { nextResetAt } from "../lib/time.js";
+import { QUOTA_BY_ROLE } from "../services/auth.js";
 
 export async function listUsers(req, res, next) {
   try {
     const { rows } = await query(
-      "SELECT id, email, name, role, credits_daily, credits_left, credits_reset_at," +
-      " created_at, last_login_at, disabled_at FROM users ORDER BY created_at DESC LIMIT 500"
+      "SELECT u.id, u.username, u.name, u.role, u.credits_daily, u.credits_left," +
+      " u.created_at, u.last_login_at, u.disabled_at, u.team_id, t.name AS team_name" +
+      " FROM users u LEFT JOIN teams t ON t.id = u.team_id" +
+      " ORDER BY u.created_at DESC LIMIT 500"
     );
     return res.json({
       items: rows.map((u) => ({
         id: String(u.id),
-        email: u.email,
+        username: u.username,
         name: u.name,
+        teamId: u.team_id ? String(u.team_id) : null,
+        teamName: u.team_name,
         role: u.role,
         creditsDaily: u.credits_daily,
         creditsLeft: u.credits_left,
@@ -30,31 +35,50 @@ export async function listUsers(req, res, next) {
 
 const ROLES = ["admin", "free", "paid"];
 
+// ชื่อผู้ใช้ต้องไม่มีช่องว่างและอักขระพิเศษ เพราะเป็นสิ่งที่คนต้องพิมพ์เข้าระบบทุกวัน
+// เก็บเป็นตัวพิมพ์เล็กเสมอ ไม่งั้น somchai กับ Somchai จะกลายเป็นคนละบัญชี
+const USERNAME_OK = /^[a-z0-9][a-z0-9._-]{2,31}$/;
+
+export async function listTeams(req, res, next) {
+  try {
+    const { rows } = await query("SELECT id, name FROM teams ORDER BY name");
+    return res.json({ items: rows.map((t) => ({ id: String(t.id), name: t.name })) });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 export async function createUser(req, res, next) {
   try {
-    const email = String(req.body?.email || "").trim().toLowerCase();
+    const username = String(req.body?.username || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
     const role = req.body?.role || "free";
     const name = String(req.body?.name || "").trim() || null;
-    const creditsDaily = Number(req.body?.creditsDaily);
+    const teamId = req.body?.teamId ? Number(req.body.teamId) : null;
 
-    if (!email.includes("@")) return res.status(400).json({ error: "อีเมลไม่ถูกต้อง" });
+    if (!USERNAME_OK.test(username)) {
+      return res.status(400).json({ error: "ชื่อผู้ใช้ใช้ได้เฉพาะ a-z 0-9 . _ - ยาว 3–32 ตัว และขึ้นต้นด้วยตัวอักษรหรือตัวเลข" });
+    }
     if (password.length < 8) return res.status(400).json({ error: "รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร" });
-    if (!ROLES.includes(role)) return res.status(400).json({ error: "ระดับสมาชิกไม่ถูกต้อง" });
-    if (!Number.isFinite(creditsDaily) || creditsDaily < 0) {
-      return res.status(400).json({ error: "โควตาต่อวันต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" });
+    if (!ROLES.includes(role)) return res.status(400).json({ error: "สิทธิ์ไม่ถูกต้อง" });
+
+    const exists = await query("SELECT 1 FROM users WHERE lower(username) = $1", [username]);
+    if (exists.rowCount) return res.status(409).json({ error: "ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว" });
+
+    if (teamId) {
+      const team = await query("SELECT 1 FROM teams WHERE id = $1", [teamId]);
+      if (!team.rowCount) return res.status(400).json({ error: "ไม่พบทีมที่เลือก" });
     }
 
-    const exists = await query("SELECT 1 FROM users WHERE email = $1", [email]);
-    if (exists.rowCount) return res.status(409).json({ error: "อีเมลนี้มีอยู่ในระบบแล้ว" });
-
+    // โควตาเริ่มต้นมาจากสิทธิ์ ไม่ต้องให้ผู้ดูแลกรอกตอนสร้าง แก้ทีหลังในตารางได้
+    const quota = QUOTA_BY_ROLE[role] ?? 0;
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await query(
-      "INSERT INTO users (email, password_hash, name, role, credits_daily, credits_left, credits_reset_at)" +
-      " VALUES ($1,$2,$3,$4,$5,$5,$6) RETURNING id, email, role, credits_daily, credits_left",
-      [email, hash, name, role, creditsDaily, nextResetAt()]
+      "INSERT INTO users (username, password_hash, name, role, team_id, credits_daily, credits_left, credits_reset_at)" +
+      " VALUES ($1,$2,$3,$4,$5,$6,$6,$7) RETURNING id, username, name, role, credits_daily",
+      [username, hash, name, role, teamId, quota, nextResetAt()]
     );
-    return res.status(201).json({ user: rows[0] });
+    return res.status(201).json({ user: { ...rows[0], id: String(rows[0].id) } });
   } catch (err) {
     return next(err);
   }
@@ -62,7 +86,7 @@ export async function createUser(req, res, next) {
 
 export async function updateUser(req, res, next) {
   try {
-    const { role, creditsDaily, creditsLeft, disabled, name, password, resetToday } = req.body || {};
+    const { role, creditsDaily, creditsLeft, disabled, name, password, resetToday, teamId } = req.body || {};
     if (role && !ROLES.includes(role)) return res.status(400).json({ error: "ระดับสมาชิกไม่ถูกต้อง" });
     if (String(req.params.id) === String(req.user.id) && role && role !== "admin") {
       return res.status(400).json({ error: "ลดสิทธิ์ของตัวเองไม่ได้ ให้ผู้ดูแลอีกคนทำแทน" });
@@ -87,9 +111,10 @@ export async function updateUser(req, res, next) {
       "   WHEN $5::int IS NOT NULL THEN LEAST(credits_left, $5::int)" +
       "   ELSE credits_left END," +
       " disabled_at = CASE WHEN $8::boolean IS NULL THEN disabled_at" +
-      "                    WHEN $8::boolean THEN now() ELSE NULL END" +
+      "                    WHEN $8::boolean THEN now() ELSE NULL END," +
+      " team_id = COALESCE($9::bigint, team_id)" +
       " WHERE id = $1" +
-      " RETURNING id, email, name, role, credits_daily, credits_left, disabled_at",
+      " RETURNING id, username, name, role, team_id, credits_daily, credits_left, disabled_at",
       [
         req.params.id,
         role ?? null,
@@ -99,6 +124,7 @@ export async function updateUser(req, res, next) {
         creditsLeft ?? null,
         resetToday ?? null,
         disabled ?? null,
+        teamId ?? null,
       ]
     );
     if (!rows.length) return res.status(404).json({ error: "ไม่พบบัญชีผู้ใช้" });
@@ -113,9 +139,9 @@ export async function deleteUser(req, res, next) {
     if (String(req.params.id) === String(req.user.id)) {
       return res.status(400).json({ error: "ลบบัญชีตัวเองไม่ได้" });
     }
-    const { rows } = await query("DELETE FROM users WHERE id = $1 RETURNING email", [req.params.id]);
+    const { rows } = await query("DELETE FROM users WHERE id = $1 RETURNING username", [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: "ไม่พบบัญชีผู้ใช้" });
-    return res.json({ deleted: rows[0].email });
+    return res.json({ deleted: rows[0].username });
   } catch (err) {
     return next(err);
   }
@@ -138,10 +164,10 @@ export async function stats(req, res, next) {
       " GROUP BY day ORDER BY day DESC"
     );
     const heavy = await query(
-      "SELECT u.email, count(*)::int AS searches, COALESCE(sum(l.api_cost), 0)::float AS cost" +
+      "SELECT u.username, count(*)::int AS searches, COALESCE(sum(l.api_cost), 0)::float AS cost" +
       " FROM search_logs l JOIN users u ON u.id = l.user_id" +
       " WHERE l.created_at > now() - interval '30 days'" +
-      " GROUP BY u.email ORDER BY cost DESC LIMIT 20"
+      " GROUP BY u.username ORDER BY cost DESC LIMIT 20"
     );
     const cacheRows = await query("SELECT count(*)::int AS n FROM keyword_cache");
 

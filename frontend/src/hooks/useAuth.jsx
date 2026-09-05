@@ -36,22 +36,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(
-    async (email, password) => {
+    async (username, password) => {
       try {
-        const r = await api.post("/auth/login", { email, password });
-        save(r.data);
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: errorText(err) };
-      }
-    },
-    [save]
-  );
-
-  const register = useCallback(
-    async (email, password, name) => {
-      try {
-        const r = await api.post("/auth/register", { email, password, name });
+        const r = await api.post("/auth/login", { username, password });
         save(r.data);
         return { ok: true };
       } catch (err) {
@@ -76,8 +63,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user: auth?.user ?? null, ready, login, register, logout, patchUser }),
-    [auth, ready, login, register, logout, patchUser]
+    () => ({ user: auth?.user ?? null, ready, login, logout, patchUser }),
+    [auth, ready, login, logout, patchUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
