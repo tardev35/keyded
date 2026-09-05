@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+
+# ความลับทั้งหมดอ่านจาก environment ไม่ใช่จากไฟล์ใน repo
+.env
+.env.*
+!.env.example
+
+# response ดิบจาก DataForSEO ที่เก็บไว้ตอนวัด — มีข้อมูลบัญชีปนอยู่ได้
+samples/
+measurements/
+*.log

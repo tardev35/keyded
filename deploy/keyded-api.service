@@ -1,0 +1,32 @@
+[Unit]
+Description=Keyded API
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=keyded
+Group=keyded
+WorkingDirectory=/opt/keyded/backend
+EnvironmentFile=/opt/keyded/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+
+# เครื่องนี้มีเว็บอื่นอยู่ 324 ตัวและ RAM แค่ 1.9 GB
+# จำกัดเพดานไว้ไม่ให้แอปเราไปเบียดของเดิมเวลามีอะไรผิดปกติ
+MemoryMax=512M
+MemoryHigh=384M
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/keyded
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=keyded-api
+
+[Install]
+WantedBy=multi-user.target

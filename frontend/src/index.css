@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* คู่สีทั้งสองธีมจับคอนทราสต์ไว้แล้ว ห้ามฝังสีตายตัวในคอมโพเนนต์
+   ไม่งั้นธีมมืดจะพังทีละจุดโดยไม่มีใครสังเกต */
+:root {
+  --c-page: 247 248 250;
+  --c-surface: 255 255 255;
+  --c-raised: 249 250 251;
+  --c-line: 226 230 236;
+  --c-ink: 17 24 39;
+  --c-muted: 87 96 111;
+  --c-faint: 142 150 163;
+  --c-brand: 124 58 237;
+  --c-brand-soft: 243 238 255;
+  --c-brand-alt: 219 39 119;
+  --c-up: 21 128 61;
+  --c-down: 190 24 60;
+  --c-bar: 245 158 11;
+}
+
+.dark {
+  --c-page: 13 17 23;
+  --c-surface: 22 27 34;
+  --c-raised: 30 36 45;
+  --c-line: 48 54 61;
+  --c-ink: 230 237 243;
+  --c-muted: 155 165 178;
+  --c-faint: 118 128 141;
+  --c-brand: 167 121 255;
+  --c-brand-soft: 45 35 70;
+  --c-brand-alt: 244 114 182;
+  --c-up: 63 185 80;
+  --c-down: 248 113 133;
+  --c-bar: 234 179 8;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-page text-ink font-sans antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-line rounded-full;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
