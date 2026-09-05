@@ -6,6 +6,7 @@ const AUTH = "Basic " + Buffer.from(env.DATAFORSEO_LOGIN + ":" + env.DATAFORSEO_
 
 const IDEAS = "/keywords_data/google_ads/keywords_for_keywords/live";
 const VOLUME = "/keywords_data/google_ads/search_volume/live";
+const SUGGESTIONS = "/dataforseo_labs/google/keyword_suggestions/live";
 const ACCOUNT = "/appendix/user_data";
 
 // วัดจริง 4 ก.ย. 2569 — ตัดที่ 40 วินาทีแล้วเสียเงินฟรีสองครั้ง ($0.18) เพราะ DataForSEO
@@ -148,6 +149,68 @@ export async function fetchSearchVolume({ keywords, locationCode, languageCode, 
     date_from: dateFromForMonths(monthsBack),
   }]);
   return unwrap(res, VOLUME);
+}
+
+// Labs คิดเงินแบบ ขั้นต่ำราว $0.012 ต่อคำขอ บวก $0.00012 ต่อผลลัพธ์ (วัดจริง 5 ก.ย. 2569)
+//   100 คำ = $0.024   ·   300 คำ = $0.048   ·   700 คำ = $0.096 ซึ่งแพงกว่า Google Ads แล้ว
+// ค่า limit จึงเป็นตัวคุมต้นทุนโดยตรง ห้ามขยับโดยไม่คิดเรื่องเงิน
+//
+// เทียบกับ keywords_for_keywords ที่ราคา $0.09 คงที่ — Labs ชนะขาดกับคำแบรนด์
+// วัดจริง seed ufa191 ได้ 180 คำจาก Labs เทียบกับ 22 คำจาก Google Ads
+// และตัวเลข volume ตรงกันทุกคำที่ทับกัน เพราะเป็นฐานข้อมูล Google Ads ชุดเดียวกัน
+export async function fetchLabsSuggestions({ keyword, locationCode, languageCode, limit }) {
+  const res = await call(SUGGESTIONS, [{
+    keyword,
+    location_code: locationCode,
+    language_code: languageCode,
+    limit,
+    include_serp_info: false,
+    include_clickstream_data: false,
+  }]);
+  const out = unwrapLabs(res, SUGGESTIONS);
+  return { ...out, ms: res.ms, rateLimit: res.rateLimit };
+}
+
+// Labs ห่อผลไว้ลึกกว่า Google Ads หนึ่งชั้น — result[0].items แทนที่จะเป็น result ตรงๆ
+// และ "ไม่เจอคำเลย" เป็นคำตอบที่ถูกต้อง ไม่ใช่ความผิดพลาด (วัดเจอกับ seed amd365)
+function unwrapLabs(res, path) {
+  if (!res.json) {
+    throw new DataForSeoError({
+      code: "api_error",
+      userMessage: "ระบบต้นทางส่งข้อมูลที่อ่านไม่ได้",
+      detail: "HTTP " + res.http + " · " + res.raw + " · " + path,
+    });
+  }
+  if (res.http !== 200 || !okCode(res.json.status_code)) {
+    throw new DataForSeoError({
+      code: res.http === 401 ? "auth_error" : "api_error",
+      userMessage: "ระบบต้นทางปฏิเสธคำขอ ทีมงานได้รับแจ้งแล้ว",
+      detail: "HTTP " + res.http + " · resp " + res.json.status_code + " " + res.json.status_message + " · " + path,
+    });
+  }
+  const task = res.json.tasks?.[0] ?? null;
+  if (!task || !okCode(task.status_code)) {
+    throw new DataForSeoError({
+      code: "api_error",
+      userMessage: "ระบบต้นทางประมวลผลคำขอไม่สำเร็จ",
+      detail: "task " + task?.status_code + " " + (task?.status_message || "ไม่มี task") + " · " + path,
+    });
+  }
+
+  const cost = Number(res.json.cost ?? 0);
+  const result = task.result?.[0] ?? null;
+  const items = Array.isArray(result?.items) ? result.items : [];
+
+  if (cost <= 0 && !result) {
+    throw new DataForSeoError({
+      code: "throttled",
+      userMessage: "ตอนนี้มีคนใช้งานพร้อมกันเยอะ ระบบต้นทางชะลอคำขอไว้ ลองใหม่ในอีกสักครู่",
+      detail: "cost=0 และไม่มี result ทั้งที่ status ผ่าน · " + path,
+      status: 503,
+    });
+  }
+
+  return { items, cost, totalCount: result?.total_count ?? items.length };
 }
 
 // คำขอนี้ราคา $0 (วัดจริง 4 ก.ย. 2569) ใช้เช็กตอนบูตได้โดยไม่มีต้นทุน

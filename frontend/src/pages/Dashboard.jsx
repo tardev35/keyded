@@ -70,8 +70,14 @@ export default function Dashboard() {
           <h1 className="text-lg font-semibold">{result.keyword}</h1>
 
           {/* คำที่หายไประหว่างทางต้องบอกเสมอว่าหายกี่คำและเพราะอะไร (CLAUDE.md กฎข้อ 4) */}
-          {result.invalid?.length || result.notFound?.length || result.overflow ? (
+          {result.invalid?.length || result.notFound?.length || result.overflow || result.sourceTotal > result.summary.totalRows ? (
             <div className="space-y-1 rounded-xl border border-bar/40 bg-surface px-4 py-3 text-xs text-muted">
+              {result.sourceTotal > result.summary.totalRows ? (
+                <div>
+                  แหล่งข้อมูลมีทั้งหมด {fmtNumber(result.sourceTotal)} คำ · ดึงมาแล้ว{" "}
+                  {fmtNumber(result.summary.totalRows)} คำ ที่เหลือยังไม่ได้ดึงเพื่อคุมต้นทุน
+                </div>
+              ) : null}
               {result.overflow ? (
                 <div>ตัดออก {fmtNumber(result.overflow)} คำ เพราะเกินจำนวนสูงสุดต่อครั้ง</div>
               ) : null}

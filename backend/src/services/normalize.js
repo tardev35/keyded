@@ -89,6 +89,35 @@ export function normalizeRows(rawRows) {
     .sort((a, b) => (b.volume ?? -1) - (a.volume ?? -1));
 }
 
+// Labs ห่อตัวเลขไว้ใน keyword_info และให้ competition เป็นทศนิยม 0–1
+// ส่วน Google Ads ให้ competition_index เป็น 0–100 · ต้องแปลงให้เป็นสเกลเดียวกัน
+// ไม่งั้นการเรียงลำดับกับการหาค่าเฉลี่ยจะเทียบข้ามหน่วยโดยไม่มีใครสังเกต
+export function normalizeLabsRow(raw) {
+  const info = raw.keyword_info ?? {};
+  const months = monthsAscending(info.monthly_searches);
+  const { trendPct, trendMonths } = trendOf(months);
+  const competition = num(info.competition);
+  return {
+    keyword: String(raw.keyword),
+    volume: num(info.search_volume),
+    competition: info.competition_level ?? null,
+    competitionIndex: known(competition) ? Math.round(competition * 100) : null,
+    cpc: num(info.cpc),
+    lowBid: num(info.low_top_of_page_bid),
+    highBid: num(info.high_top_of_page_bid),
+    months,
+    trendPct,
+    trendMonths,
+    brand: null,
+  };
+}
+
+export function normalizeLabsRows(items) {
+  return items
+    .map(normalizeLabsRow)
+    .sort((a, b) => (b.volume ?? -1) - (a.volume ?? -1));
+}
+
 // Google Ads คืนคำเดียวกันหลายรูปเมื่อคำตั้งต้นมีเครื่องหมาย — วัดจริง 4 ก.ย. 2569
 // seed "7-11 game" ได้ทั้ง "7-11 game" และ "7 11 game" ปริมาณ 2,900 เท่ากันทั้งคู่
 // เพราะเป็นคำค้นเดียวกัน · เอามาบวกกันจะได้ยอดรวมเป็นสองเท่าโดยดูไม่ออก
@@ -96,20 +125,28 @@ export function normalizeRows(rawRows) {
 const sameQueryKey = (keyword) =>
   keyword.toLowerCase().replace(/[-_.'"]/g, " ").replace(/\s+/g, " ").trim();
 
+// ภาษาไทยเว้นวรรคยังไงก็ได้ Labs จึงคืน "เข้าสู่ระบบufa191" กับ "เข้า สู่ ระบบ ufa191"
+// เป็นคนละแถวทั้งที่เป็นคำค้นเดียวกัน (วัดจริง 5 ก.ย. 2569 พองยอดรวมไป 75%)
+// ต้องลบช่องว่างทั้งหมดก่อนเทียบ ไม่ใช่แค่ยุบให้เหลือช่องเดียว
+const tightKey = (keyword) => keyword.toLowerCase().replace(/[-_.'"\s]/g, "");
+
 // เทียบว่าคำนั้น "มีคำตั้งต้นอยู่ในนั้นไหม" ต้องเทียบหลังตัดเครื่องหมายเหมือนกัน
 // ไม่งั้น seed "7-11 game" จะมองว่า "7 11 game" เป็นคนละเรื่องกัน ทั้งที่เป็นคำค้นเดียวกัน
 export function markDuplicates(rows, seed = "") {
   const canonical = new Map();
   const seedKey = sameQueryKey(seed);
   return rows.map((row) => {
-    const key = sameQueryKey(row.keyword);
+    const containsSeed = Boolean(seedKey) && sameQueryKey(row.keyword).includes(seedKey);
+    const key = tightKey(row.keyword);
     const first = canonical.get(key);
-    const containsSeed = Boolean(seedKey) && key.includes(seedKey);
-    if (!first) {
-      canonical.set(key, row.keyword);
-      return { ...row, duplicateOf: null, containsSeed };
+
+    // ลบช่องว่างอย่างเดียวไม่พอ — "ufa19 1" (70 ครั้ง) กับ "ufa191" (135,000 ครั้ง)
+    // จะกลายเป็นคำเดียวกันทั้งที่คนละคำจริงๆ · ถือว่าซ้ำต่อเมื่อปริมาณค้นหาเท่ากันด้วย
+    if (first && first.volume === row.volume) {
+      return { ...row, duplicateOf: first.keyword, containsSeed };
     }
-    return { ...row, duplicateOf: first, containsSeed };
+    if (!first) canonical.set(key, { keyword: row.keyword, volume: row.volume });
+    return { ...row, duplicateOf: null, containsSeed };
   });
 }
 

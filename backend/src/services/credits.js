@@ -68,7 +68,7 @@ async function insertLog(client, entry) {
 
 // หักเครดิต เขียน log และบันทึกผลลัพธ์ ต้องจบพร้อมกันหรือไม่เกิดเลย
 // หักตาม "การค้นหา" ครั้งละ 1 ไม่ใช่ตามจำนวนคำที่ได้กลับมา (PLAN ข้อ 2.4)
-export async function commitPaidSearch({ userId, keyword, locationCode, languageCode, payload, meta, charge = true }) {
+export async function commitPaidSearch({ userId, keyword, locationCode, languageCode, payload, meta, charge = true, kind }) {
   return withTransaction(async (client) => {
     const user = await loadUserForUpdate(client, userId);
     let creditsUsed = 0;
@@ -93,7 +93,7 @@ export async function commitPaidSearch({ userId, keyword, locationCode, language
       creditsLeft = rows[0].credits_left;
     }
 
-    await writeCache(client, { keyword, locationCode, languageCode, payload });
+    await writeCache(client, { keyword, locationCode, languageCode, payload, kind });
 
     const logId = await insertLog(client, {
       userId, keyword, locationCode, languageCode,

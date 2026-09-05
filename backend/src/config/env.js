@@ -51,4 +51,7 @@ export const env = {
   USD_THB: num("KEYFIN_USD_THB", 33),
   BULK_MAX: num("KEYFIN_BULK_MAX", 2100),
   BULK_CHUNK: num("KEYFIN_BULK_CHUNK", 700),
+
+  ENGINE: process.env.KEYFIN_ENGINE === "google_ads" ? "google_ads" : "labs",
+  LABS_LIMIT: num("KEYFIN_LABS_LIMIT", 100),
 };

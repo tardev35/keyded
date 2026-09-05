@@ -3,6 +3,7 @@ import { env } from "../config/env.js";
 import { latestMonthOf } from "./normalize.js";
 
 export const IDEAS = "ideas";
+export const LABS = "labs";
 export const METRICS = "metrics";
 
 export const cacheKey = (keyword) => String(keyword).trim().toLowerCase().replace(/\s+/g, " ");
