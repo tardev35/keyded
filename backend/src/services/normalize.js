@@ -79,8 +79,22 @@ export function latestMonthOf(rows) {
 // ค่าที่คำนวณได้จาก months ต้องคิดใหม่ตอนอ่าน ไม่ใช่เชื่อค่าที่ค้างในแคช
 // วันที่เปลี่ยนสูตรเทรนด์ (5 ก.ย. 2569) ของเก่าในแคชยังถือเลขสูตรเดิมอยู่
 // ถ้าไม่คิดใหม่ ตารางกับยอดสรุปจะใช้คนละสูตรกันโดยไม่มีใครสังเกต
+// คำถามจริงที่ผู้ใช้ถามเครื่องมือนี้คือ "แบรนด์นี้ยังทำการตลาดอยู่ไหม"
+// ซึ่งดูจากเดือนท้ายๆ ไม่ใช่ค่าเฉลี่ยทั้งปี · ค่าเฉลี่ยยังสูงอยู่ได้ทั้งที่เงียบมาสามเดือนแล้ว
+// ทั้งสองค่านี้เป็นข้อเท็จจริงจากข้อมูลตรงๆ ไม่ใช่การตีความหรือให้คะแนน
+function activityOf(months) {
+  const known3 = (months || []).filter((m) => known(m.volume)).slice(-3);
+  if (!known3.length) return { latest: null, silentMonths: 0 };
+  let silent = 0;
+  for (let i = known3.length - 1; i >= 0; i -= 1) {
+    if (known3[i].volume === 0) silent += 1;
+    else break;
+  }
+  return { latest: known3[known3.length - 1], silentMonths: silent };
+}
+
 export function withFreshTrend(rows) {
-  return rows.map((row) => ({ ...row, ...trendOf(row.months) }));
+  return rows.map((row) => ({ ...row, ...trendOf(row.months), ...activityOf(row.months) }));
 }
 
 export function normalizeRows(rawRows) {

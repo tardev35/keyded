@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import MiniTrend from "./MiniTrend.jsx";
 import TrendPopover from "./TrendPopover.jsx";
-import { brandLabel, competitionLabel, competitionTone, fmtNumber, fmtTrend } from "../lib/format.js";
+import { brandLabel, competitionLabel, competitionTone, fmtNumber, fmtTrend, monthLabel } from "../lib/format.js";
 
 const ROW_H = 44;
 const VIEWPORT_H = 528;
@@ -146,7 +146,7 @@ export default function KeywordTable({ rows, truncated, focused, onFocus }) {
           className="h-3.5 w-3.5 accent-current text-brand"
         />
         <SortButton id="keyword" sort={sort} setSort={setSort}>คำค้นหา</SortButton>
-        <SortButton id="volume" sort={sort} setSort={setSort} className="justify-end">ค้นหา/เดือน</SortButton>
+        <SortButton id="volume" sort={sort} setSort={setSort} className="justify-end">เฉลี่ย · เดือนล่าสุด</SortButton>
         <SortButton id="trend" sort={sort} setSort={setSort} className="justify-end">แนวโน้ม</SortButton>
         <span className="text-xs font-medium text-muted">กราฟ</span>
         <SortButton id="competition" sort={sort} setSort={setSort} className="justify-end">การแข่งขัน</SortButton>
@@ -197,6 +197,14 @@ export default function KeywordTable({ rows, truncated, focused, onFocus }) {
                     <span className={"truncate text-sm font-medium " + (isFocused ? "text-brand" : "")} title={row.keyword}>
                       {row.keyword}
                     </span>
+                    {row.silentMonths >= 2 ? (
+                      <span
+                        title={"ไม่มีคนค้นเลย " + row.silentMonths + " เดือนล่าสุด"}
+                        className="shrink-0 rounded border border-down/40 px-1 text-[9px] leading-4 text-down"
+                      >
+                        เงียบ {row.silentMonths} เดือน
+                      </span>
+                    ) : null}
                     {row.duplicateOf ? (
                       <span
                         title={"คำค้นเดียวกับ " + row.duplicateOf + " ไม่ถูกนับซ้ำในยอดรวม"}
@@ -209,7 +217,14 @@ export default function KeywordTable({ rows, truncated, focused, onFocus }) {
                   {brand ? <div className="text-[10px] leading-none text-faint">{brand}</div> : null}
                 </div>
 
-                <div className="text-right text-sm font-semibold tabular-nums">{fmtNumber(row.volume)}</div>
+                <div className="text-right">
+                  <div className="text-sm font-semibold tabular-nums">{fmtNumber(row.volume)}</div>
+                  {row.latest ? (
+                    <div className="text-[10px] leading-none text-faint tabular-nums">
+                      {monthLabel(row.latest)} {fmtNumber(row.latest.volume)}
+                    </div>
+                  ) : null}
+                </div>
 
                 <div
                   onMouseEnter={(e) => setHover({ row, ...anchorOf(e) })}

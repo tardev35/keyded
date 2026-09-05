@@ -42,6 +42,8 @@ const DATES = has("--dates");
 const LABS = has("--labs");
 const LABS_LIMIT = Number(val("--limit", 100)) || 100;
 const LABS_SEEDS = val("--seeds", "").split(",").map((x) => x.trim()).filter(Boolean);
+const LABS_BULK = has("--labs-bulk");
+const BULK_WORDS = val("--words", "").split(",").map((x) => x.trim()).filter(Boolean);
 const DATE_FROM = val("--from", "2024-08-01");
 const RUN_ALL = has("--all");
 const ACCOUNT_ONLY = has("--account");
@@ -143,7 +145,8 @@ if (DATES) plan.push(
   ["date_from · search_volume หลายคำพร้อมกัน", 1],
 );
 // Labs คิดตามจำนวนผลลัพธ์ $0.00012/คำ ไม่ใช่ต่อคำขอ (อ่านจากตารางราคาของบัญชี)
-if (LABS && LABS_SEEDS.length) plan.push(["labs keyword_suggestions x " + LABS_SEEDS.length + " seed", LABS_SEEDS.length]);
+if (LABS_BULK) plan.push(["labs bulk_search_volume · " + BULK_WORDS.length + " คำ", 1]);
+else if (LABS && LABS_SEEDS.length) plan.push(["labs keyword_suggestions x " + LABS_SEEDS.length + " seed", LABS_SEEDS.length]);
 else if (LABS) plan.push(
   ["labs keyword_suggestions limit=" + LABS_LIMIT, 1],
   ["labs related_keywords limit=" + LABS_LIMIT, 1],
@@ -294,8 +297,40 @@ if (RUN_BURST) {
   console.log("");
 }
 
-// โหมดหลาย seed ใช้เทียบว่าคำแบรนด์แต่ละตัวได้คำมากน้อยแค่ไหน ซึ่งเป็นเคสหลักของผู้ใช้จริง
-if (LABS && LABS_SEEDS.length) {
+// ตัวเทียบของ google_ads/search_volume — ส่งคำไปเท่าไหร่ได้กลับเท่านั้น ไม่สร้างคำใหม่
+// ต้องรู้ก่อนว่าคืน monthly_searches มาด้วยไหม ถ้าไม่คืนโหมดหลายคำจะไม่มีกราฟ
+if (LABS_BULK) {
+  const r = await call("/dataforseo_labs/google/" + val("--endpoint", "keyword_overview") + "/live",
+    [{ keywords: BULK_WORDS, location_code: LOCATION, language_code: LANGUAGE }]);
+  save("09-labs-bulk-search-volume", r.json);
+  const e = statusOf(r);
+  if (e) console.log("  x " + e);
+  else {
+    const res = task(r)?.result?.[0] ?? {};
+    const items = res.items ?? [];
+    console.log("  ตอบใน " + r.ms + " ms · cost " + money(r.json.cost) + " · ส่งไป " + BULK_WORDS.length + " คำ ได้กลับ " + items.length + " คำ" + rlOf(r));
+    if (items[0]) {
+      console.log("  field ชั้นบน: " + Object.keys(items[0]).join(" · "));
+      const info = items[0].keyword_info ?? {};
+      console.log("  keyword_info: " + Object.keys(info).join(" · "));
+      const m = info.monthly_searches;
+      console.log("  monthly_searches: " + (Array.isArray(m) ? m.length + " เดือน · ล่าสุด " + m[0].year + "-" + m[0].month : "ไม่มี  <- โหมดหลายคำจะไม่มีกราฟ"));
+    }
+    console.log("");
+    console.log("  " + pad("คำ", 16) + lpad("volume", 9) + lpad("เดือน", 7) + lpad("cpc", 8) + lpad("comp", 7));
+    for (const x of items) {
+      const i = x.keyword_info ?? {};
+      console.log("  " + pad(x.keyword, 16) + lpad(show(i.search_volume), 9) +
+        lpad(Array.isArray(i.monthly_searches) ? i.monthly_searches.length : 0, 7) +
+        lpad(show(i.cpc), 8) + lpad(show(i.competition_level ?? i.competition), 7));
+    }
+    const got = new Set(items.map((x) => String(x.keyword).toLowerCase()));
+    const miss = BULK_WORDS.filter((k) => !got.has(k.toLowerCase()));
+    if (miss.length) console.log("  ส่งไปแล้วไม่ได้กลับมา: " + miss.join(" · "));
+    console.log("  ราคาต่อคำ " + money(items.length ? (r.json.cost || 0) / items.length : 0));
+  }
+  console.log("");
+} else if (LABS && LABS_SEEDS.length) {
   const norm = (k) => String(k).toLowerCase().replace(/[-_.]/g, " ").replace(/s+/g, "");
   console.log("  " + pad("seed", 14) + lpad("ได้มา", 7) + lpad("ทั้งหมด", 9) + lpad("ไม่ซ้ำ", 8) + lpad("volume", 12) + lpad("cost", 10) + lpad("ms", 7));
   let total = 0;
