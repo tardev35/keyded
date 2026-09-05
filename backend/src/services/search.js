@@ -1,7 +1,7 @@
 import { env } from "../config/env.js";
-import { validateKeyword, fetchKeywordIdeas, fetchSearchVolume, DataForSeoError } from "./dataforseo.js";
-import { normalizeRows, summarize, withTabs, markDuplicates, withFreshTrend } from "./normalize.js";
-import { readCache, readManyCache, makeKey, cacheKey, METRICS } from "./cache.js";
+import { validateKeyword, fetchKeywordIdeas, fetchSearchVolume, fetchLabsSuggestions, DataForSeoError } from "./dataforseo.js";
+import { normalizeRows, normalizeLabsRows, summarize, withTabs, markDuplicates, withFreshTrend } from "./normalize.js";
+import { readCache, readManyCache, makeKey, cacheKey, METRICS, IDEAS, LABS } from "./cache.js";
 import { schedule, estimateWaitSeconds } from "./queue.js";
 import {
   assertHasCredit,
@@ -53,6 +53,9 @@ function present({ payload, user, source, fetchedAt, ageDays, credits, meta }) {
     fetchedAtThai: thaiDate(fetchedAt),
     ageDays,
     monthsBack: payload.monthsBack,
+    engine: payload.engine ?? "google_ads",
+    fellBack: Boolean(payload.fellBack),
+    sourceTotal: payload.totalCount ?? payload.rows.length,
     summary: summarize(rows),
     rows: limited.rows,
     truncated: limited.truncated,
@@ -80,7 +83,12 @@ export async function runSearch({ user, keyword: rawKeyword, locationCode, langu
 
   await withTransaction((client) => assertHasCredit(client, user.id));
 
-  const cached = await readCache({ keyword, locationCode, languageCode });
+  // แยกแคชตามเครื่องยนต์ที่ใช้ดึง — Labs กับ Google Ads คืนคนละชุดคำสำหรับ seed เดียวกัน
+  // ถ้าใช้ช่องเดียวกัน วันที่สลับเครื่องยนต์จะเสิร์ฟของเก่าที่ไม่ตรงกับที่ผู้ใช้คาด
+  const useLabs = env.ENGINE === "labs";
+  const kind = useLabs ? LABS : IDEAS;
+
+  const cached = await readCache({ keyword, locationCode, languageCode, kind });
   if (cached?.stale) {
     console.log("[cache] ข้ามแคชของ " + keyword + " · " + cached.stale);
   }
@@ -103,12 +111,35 @@ export async function runSearch({ user, keyword: rawKeyword, locationCode, langu
     });
   }
 
-  const key = makeKey({ keyword, locationCode, languageCode });
-  const job = schedule({
-    userId: String(user.id),
-    key,
-    run: () => fetchKeywordIdeas({ keyword, locationCode, languageCode }),
-  });
+  // Labs ก่อน Google Ads สำรอง — วัดจริง 5 ก.ย. 2569 กับแบรนด์ 16 ตัว
+  // Labs มีข้อมูล 9 ตัว (ให้คำมากกว่า Google Ads หลายเท่า เช่น ufa191 180 vs 22 คำ)
+  // อีก 7 ตัวไม่มีในฐานเลย (jadtem88 · infy88 · jeez99 · blackbonebet · amd365 …)
+  //
+  // เรียงแบบนี้เพราะ Google Ads ไม่เคยคืน 0 คำเลยสักครั้ง ถ้าเอาขึ้นก่อน
+  // ตัวสำรองจะไม่มีวันถูกเรียกใช้ และจ่าย $0.09 ทุกครั้งเหมือนเดิม
+  // ส่วน Labs คืน 0 จริง จึงใช้เป็นสัญญาณตัดสินใจได้
+  async function fetchWithFallback() {
+    if (!useLabs) {
+      const only = await fetchKeywordIdeas({ keyword, locationCode, languageCode });
+      return { items: null, rows: only.rows, cost: only.cost, ms: only.ms, source: "google_ads", fellBack: false };
+    }
+    const labs = await fetchLabsSuggestions({ keyword, locationCode, languageCode, limit: env.LABS_LIMIT });
+    if (labs.items.length) {
+      return { items: labs.items, rows: null, cost: labs.cost, ms: labs.ms, source: "labs", fellBack: false, totalCount: labs.totalCount };
+    }
+    const ads = await fetchKeywordIdeas({ keyword, locationCode, languageCode });
+    return {
+      items: null,
+      rows: ads.rows,
+      cost: (Number(labs.cost) || 0) + (Number(ads.cost) || 0),
+      ms: labs.ms + ads.ms,
+      source: "google_ads",
+      fellBack: true,
+    };
+  }
+
+  const key = makeKey({ keyword, locationCode, languageCode, kind });
+  const job = schedule({ userId: String(user.id), key, run: fetchWithFallback });
 
   let api;
   try {
@@ -130,16 +161,28 @@ export async function runSearch({ user, keyword: rawKeyword, locationCode, langu
     throw err;
   }
 
-  const rows = withTabs(normalizeRows(api.rows));
+  const rows = withTabs(api.items ? normalizeLabsRows(api.items) : normalizeRows(api.rows));
   const payload = {
     keyword,
     locationCode,
     languageCode,
-    monthsBack: env.MONTHS_BACK,
+    // เก็บแหล่งที่ให้ข้อมูลจริง ไม่ใช่แหล่งที่ตั้งใจจะใช้ — คำเดียวกันคนละวันอาจมาคนละแหล่ง
+    engine: api.source,
+    fellBack: api.fellBack,
+    // Labs ให้ 12 เดือน ส่วน Google Ads ขอได้ 24 · เก็บค่าที่ได้จริงไว้กับผลลัพธ์
+    // ไม่ใช่ค่าจาก env เพราะแคชเก่าอาจมาจากเครื่องยนต์อื่นที่ให้ช่วงต่างกัน
+    monthsBack: rows[0]?.months?.length ?? (api.source === "labs" ? 12 : env.MONTHS_BACK),
+    totalCount: api.totalCount ?? rows.length,
     rows,
   };
 
+  // คนที่มาเกาะคำขอที่กำลังวิ่งอยู่ (in-flight dedup) ไม่ได้ทำให้เรายิง API เพิ่ม
+  // ถ้าบันทึก cost เต็มให้ทุกคน รายงานต้นทุนจะพองตามจำนวนคนที่บังเอิญกดพร้อมกัน
+  // วัดเจอ 5 ก.ย. 2569 — 10 คนกดพร้อมกัน จ่ายจริง $0.09 แต่ log เขียนไว้ $0.90
+  const apiCost = job.deduped ? 0 : Number(api.cost) || 0;
+
   // ได้ข้อมูลมาโดยไม่ถูกคิดเงิน (cost = 0) ก็ไม่หักเครดิต — เราไม่ได้จ่าย ผู้ใช้ก็ไม่ต้องจ่าย
+  // แต่คนที่เกาะผลคนอื่นยังหักเครดิตตามปกติ เพราะเขาได้ผลลัพธ์เต็มเหมือนกัน
   const charged = Number(api.cost) > 0;
   const credits = await commitPaidSearch({
     userId: user.id,
@@ -147,11 +190,12 @@ export async function runSearch({ user, keyword: rawKeyword, locationCode, langu
     locationCode,
     languageCode,
     payload,
+    kind,
     charge: charged,
     meta: {
       resultCount: rows.length,
       durationMs: Date.now() - startedAt,
-      apiCost: api.cost,
+      apiCost,
     },
   });
 
