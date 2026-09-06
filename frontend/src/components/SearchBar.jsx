@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const parseList = (text) =>
   [...new Set(text.split(/[\r\n,]+/).map((k) => k.trim().toLowerCase()).filter(Boolean))];
@@ -7,8 +7,16 @@ export default function SearchBar({ markets, value, onChange, onSubmit, onSubmit
   const [mode, setMode] = useState("single");
   const [keyword, setKeyword] = useState("");
   const [bulk, setBulk] = useState("");
+  const [askSingle, setAskSingle] = useState(false);
 
   const list = useMemo(() => parseList(bulk), [bulk]);
+
+  useEffect(() => {
+    if (!askSingle) return;
+    const onKey = (e) => e.key === "Escape" && setAskSingle(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [askSingle]);
 
   const submit = (e) => {
     e.preventDefault();
@@ -16,9 +24,22 @@ export default function SearchBar({ markets, value, onChange, onSubmit, onSubmit
     if (mode === "single") {
       const clean = keyword.trim();
       if (clean) onSubmit(clean);
-    } else if (list.length) {
-      onSubmitBulk(bulk);
+      return;
     }
+    if (!list.length) return;
+
+    // โหมดหลายคำจ่ายเท่ากันไม่ว่าจะส่งไปกี่คำ ส่งคำเดียวจึงเป็นการจ่ายเต็มราคาเพื่อคำเดียว
+    // และยังไม่ได้คำที่เกี่ยวข้องกลับมาด้วย · ถามก่อนดีกว่าปล่อยให้เผลอ (6 ก.ย. 2569)
+    if (list.length === 1) return setAskSingle(true);
+    onSubmitBulk(bulk);
+  };
+
+  const goSingle = () => {
+    const only = list[0];
+    setAskSingle(false);
+    setMode("single");
+    setKeyword(only);
+    onSubmit(only);
   };
 
   const tab = (id, label) => (
@@ -99,6 +120,39 @@ export default function SearchBar({ markets, value, onChange, onSubmit, onSubmit
       {mode === "bulk" ? (
         <div className="mt-2 px-0.5 text-[11px] text-muted">
           {list.length ? list.length + " คำ (ตัดซ้ำแล้ว)" : "ยังไม่มีคำค้นหา"}
+        </div>
+      ) : null}
+
+      {askSingle ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setAskSingle(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl"
+          >
+            <div className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-brandSoft text-2xl">💡</div>
+
+            <h2 className="text-base font-semibold text-ink">ใส่มาคำเดียว</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              โหมดหลายคำมีไว้เทียบหลายคำพร้อมกัน ถ้าจะดูคำว่า
+              <span className="font-medium text-ink"> {list[0]} </span>
+              คำเดียว โหมดคำเดียวเหมาะกว่า เพราะได้คำที่เกี่ยวข้องกลับมาด้วย
+            </p>
+            <div className="mt-5">
+              <button
+                type="button"
+                autoFocus
+                onClick={goSingle}
+                className="w-full rounded-lg bg-brand py-2.5 text-sm font-semibold text-white"
+              >
+                ไปโหมดคำเดียว
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </form>

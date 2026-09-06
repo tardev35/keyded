@@ -28,9 +28,11 @@ const BULK_LABEL = / \+\d+ คำ$/;
 
 const openLink = (row) => {
   const market = "&loc=" + row.locationCode + "&lang=" + row.languageCode;
+  // มี keywords = ค้นมาแบบหลายคำ ต้องเปิดกลับเป็นหลายคำเสมอ ถึงจะมีคำเดียวก็ตาม
+  // เคยใส่ข้อยกเว้นให้คำเดียวเปิดเป็นโหมดคำเดียว ซึ่งเปลี่ยนโหมดโดยไม่ได้ตั้งใจ
+  // แล้วไปพลาดแคชคนละ kind กลายเป็นยิงใหม่เสียเงิน ทั้งที่ตั้งใจแค่เปิดดูของเดิม (6 ก.ย. 2569)
   const list = Array.isArray(row.keywords) ? row.keywords : null;
-  if (list && list.length > 1) return "/?kws=" + encodeURIComponent(list.join("\n")) + market;
-  if (list && list.length === 1) return "/?kw=" + encodeURIComponent(list[0]) + market;
+  if (list && list.length) return "/?kws=" + encodeURIComponent(list.join("\n")) + market;
   return BULK_LABEL.test(row.keyword) ? null : "/?kw=" + encodeURIComponent(row.keyword) + market;
 };
 
