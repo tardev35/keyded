@@ -45,7 +45,7 @@ function SortButton({ id, sort, setSort, children, className = "" }) {
   );
 }
 
-export default function KeywordTable({ rows, truncated, focused, onFocus }) {
+export default function KeywordTable({ rows, truncated, focused, onFocus, onRetrySingle }) {
   const [rawFilter, setRawFilter] = useState("");
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState({ key: "volume", desc: true });
@@ -223,6 +223,19 @@ export default function KeywordTable({ rows, truncated, focused, onFocus }) {
                     <div className="text-[10px] leading-none text-faint tabular-nums">
                       {monthLabel(row.latest)} {fmtNumber(row.latest.volume)}
                     </div>
+                  ) : null}
+                  {/* "—" เฉยๆ อ่านเหมือนไม่มีคนค้นคำนี้ ทั้งที่จริงคือโหมดนี้ไม่มีข้อมูล
+                      โหมดคำเดียวใช้ข้อมูลคนละชุดและมีคำแบรนด์หลายคำที่โหมดนี้ไม่มี
+                      วัดเจอ 6 ก.ย. 2569 — หวยพร้อม โหมดหลายคำได้ NULL โหมดคำเดียวได้ 5,400 */}
+                  {row.volume === null && onRetrySingle ? (
+                    <button
+                      type="button"
+                      title="โหมดหลายคำกับโหมดคำเดียวดึงจากคนละชุดข้อมูลของ Google คำแบรนด์บางคำมีเฉพาะในโหมดคำเดียว"
+                      onClick={(e) => { e.stopPropagation(); onRetrySingle(row.keyword); }}
+                      className="mt-0.5 rounded border border-brand/40 px-1 text-[9px] leading-4 text-brand hover:bg-brandSoft"
+                    >
+                      ลองโหมดคำเดียว
+                    </button>
                   ) : null}
                 </div>
 

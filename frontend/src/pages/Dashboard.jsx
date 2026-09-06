@@ -57,6 +57,10 @@ export default function Dashboard() {
   const focusedRow = focused ? (result?.rows ?? []).find((r) => r.keyword === focused) ?? null : null;
 
   const unlimited = user?.role === "admin" || user?.creditsDaily === 0;
+
+  // นับแท่งที่วาดจริง ไม่ใช่ค่า monthsBack จาก config — ตั้งไว้ 24 แต่ Google คืนเดือนต้นทาง
+  // มาด้วยจึงได้ 25 จุด หัวกราฟเคยเขียน 24 ทั้งที่มี 25 แท่ง (6 ก.ย. 2569)
+  const chartMonths = result?.summary?.chart?.length ?? 0;
   const outOfCredit = !unlimited && (user?.creditsLeft ?? 0) <= 0;
 
   return (
@@ -135,7 +139,7 @@ export default function Dashboard() {
             chart={focusedRow ? focusedRow.months : result.summary.chart}
             trendPct={focusedRow ? focusedRow.trendPct : result.summary.trendPct}
             trendMonths={focusedRow ? focusedRow.trendMonths : result.summary.trendMonths}
-            title={focusedRow ? focusedRow.keyword : "ปริมาณค้นหารวมของทุกคำ ย้อนหลัง " + result.monthsBack + " เดือน"}
+            title={focusedRow ? focusedRow.keyword : "ปริมาณค้นหารวมของทุกคำ ย้อนหลัง " + chartMonths + " เดือน"}
             onClear={focusedRow ? () => setFocused(null) : null}
           />
 
@@ -144,6 +148,11 @@ export default function Dashboard() {
             truncated={result.truncated}
             focused={focused}
             onFocus={setFocused}
+            onRetrySingle={
+              result.mode === "bulk"
+                ? (keyword) => run({ path: "/keywords/search", body: { keyword, ...market } })
+                : null
+            }
           />
 
           <div className="pb-6 text-[11px] text-faint">— คือไม่มีข้อมูล ไม่ใช่ศูนย์</div>
