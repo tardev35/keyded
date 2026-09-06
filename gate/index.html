@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ระบบภายในทีม SEO</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237c5cff'/%3E%3Cpath d='M9 16h14M17 10l6 6-6 6' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+
+    <style>
+      :root {
+        --page: #f6f7f9;
+        --surface: #ffffff;
+        --line: #e4e7ec;
+        --ink: #12151a;
+        --muted: #5c6472;
+        --faint: #8b93a1;
+        --ring: rgba(18, 21, 26, 0.06);
+        --lift: rgba(18, 21, 26, 0.10);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #0b0d11;
+          --surface: #14181f;
+          --line: #232a35;
+          --ink: #eef1f6;
+          --muted: #98a1b0;
+          --faint: #6b7686;
+          --ring: rgba(0, 0, 0, 0.4);
+          --lift: rgba(0, 0, 0, 0.55);
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { height: 100%; }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--page);
+        color: var(--ink);
+        font-family: "Google Sans", "Noto Sans Thai", -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.55;
+      }
+
+      /* แสงนุ่มๆ ด้านบนกันไม่ให้พื้นหลังเรียบจนดูเหมือนหน้า error */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -30vh 0 auto 0;
+        height: 60vh;
+        background: radial-gradient(60% 100% at 50% 0%, rgba(124, 92, 255, 0.16), transparent 70%);
+        pointer-events: none;
+      }
+
+      .wrap {
+        position: relative;
+        max-width: 62rem;
+        margin: 0 auto;
+        padding: 6vh 1.25rem 3rem;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 3.25rem;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.6rem;
+        background: #7c5cff;
+        color: #fff;
+      }
+
+      .brand-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.65rem, 1.1rem + 2vw, 2.4rem);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .lede {
+        margin: 0.55rem 0 2.5rem;
+        max-width: 34rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+      }
+
+      .card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        padding: 1.4rem 1.4rem 1.25rem;
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        background: var(--surface);
+        color: inherit;
+        text-decoration: none;
+        box-shadow: 0 1px 2px var(--ring);
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      }
+
+      .card:hover,
+      .card:focus-visible {
+        transform: translateY(-3px);
+        border-color: var(--accent);
+        box-shadow: 0 12px 28px -12px var(--lift);
+        outline: none;
+      }
+
+      .card:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+      /* เส้นสีบางๆ ด้านบนไว้แยกระบบด้วยสายตา ไม่ต้องอ่านชื่อก่อน */
+      .card::before {
+        content: "";
+        position: absolute;
+        top: -1px;
+        left: 1.4rem;
+        right: 1.4rem;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+        opacity: 0;
+        transition: opacity 0.18s ease;
+      }
+
+      .card:hover::before,
+      .card:focus-visible::before { opacity: 1; }
+
+      .icon {
+        display: grid;
+        place-items: center;
+        width: 2.6rem;
+        height: 2.6rem;
+        margin-bottom: 1rem;
+        border-radius: 0.75rem;
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        color: var(--accent);
+      }
+
+      .name {
+        font-size: 1.02rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .desc {
+        margin: 0.35rem 0 1.4rem;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .go {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-top: auto;
+        color: var(--accent);
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .go svg { transition: transform 0.18s ease; }
+      .card:hover .go svg { transform: translateX(3px); }
+
+      .host {
+        margin-top: 0.55rem;
+        color: var(--faint);
+        font-size: 0.72rem;
+        letter-spacing: 0.01em;
+      }
+
+      footer {
+        margin-top: 3.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 0.76rem;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card, .go svg, .card::before { transition: none; }
+        .card:hover, .card:focus-visible { transform: none; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="wrap">
+    
+
+      <h1>ระบบภายในทีม</h1>
+      <p class="lede">เลือกระบบที่ต้องการเข้าใช้งาน แต่ละระบบใช้บัญชีของตัวเอง</p>
+
+      <div class="grid">
+        <a class="card" style="--accent:#3b82f6" href="https://gsc.yoalink.com/login">
+          <span class="icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 20h18" />
+              <rect x="5" y="11" width="3.4" height="6" rx="1" />
+              <rect x="10.3" y="7" width="3.4" height="10" rx="1" />
+              <rect x="15.6" y="4" width="3.4" height="13" rx="1" />
+            </svg>
+          </span>
+          <span class="name">GSC Report</span>
+          <span class="desc">รายงานข้อมูลจาก Google Search Console</span>
+          <span class="go">
+            เข้าใช้งาน
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h13M12 5l7 7-7 7" />
+            </svg>
+          </span>
+          <span class="host">gsc.yoalink.com</span>
+        </a>
+
+        <a class="card" style="--accent:#7c5cff" href="https://keyded.yoalink.com">
+          <span class="icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16.5 16.5 4 4" />
+            </svg>
+          </span>
+          <span class="name">KeyDed</span>
+          <span class="desc">วิจัยคำค้นหา ดูปริมาณการค้นและแนวโน้มรายเดือน</span>
+          <span class="go">
+            เข้าใช้งาน
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h13M12 5l7 7-7 7" />
+            </svg>
+          </span>
+          <span class="host">keyded.yoalink.com</span>
+        </a>
+
+        <a class="card" style="--accent:#10b981" href="https://audit.yoalink.com">
+          <span class="icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 4h7.5L20 7.5V20a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
+              <path d="M16 4v4h4" />
+              <path d="m11.5 14 1.8 1.8 3.2-3.4" />
+            </svg>
+          </span>
+          <span class="name">Audit Check</span>
+          <span class="desc">ตรวจเว็บ PBN ตามเช็กลิสต์ของทีม ทีละหลายเว็บในรอบเดียว</span>
+          <span class="go">
+            เข้าใช้งาน
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h13M12 5l7 7-7 7" />
+            </svg>
+          </span>
+          <span class="host">audit.yoalink.com</span>
+        </a>
+      </div>
+
+      <footer>ใช้ภายในทีมเท่านั้น · ต้องเข้าสู่ระบบก่อนใช้งานทุกระบบ</footer>
+    </main>
+  </body>
+</html>
