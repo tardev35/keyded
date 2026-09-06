@@ -24,8 +24,11 @@ export class InputError extends Error {
 
 // จำกัดจำนวนแถวของสมาชิก Free ได้ แต่ต้องบอกเสมอว่าตัดไปเท่าไหร่และเพราะอะไร
 // ตัวเลขที่ไม่ครบโดยไม่มีใครรู้ อันตรายกว่าหน้าที่โหลดช้า (CLAUDE.md กฎข้อ 4)
+//
+// ตั้ง KEYFIN_FREE_ROW_LIMIT=0 เพื่อปิดการจำกัด — ตอนนี้ใช้กันในทีมยังไม่มีแพลนขาย
+// เก็บโค้ดไว้แทนที่จะลบ เพราะวันที่เปิดขายจริงจะได้เปิดกลับด้วย env ตัวเดียว
 function applyPlanLimit(rows, user) {
-  if (user.role !== "free" || rows.length <= env.FREE_ROW_LIMIT) {
+  if (env.FREE_ROW_LIMIT <= 0 || user.role !== "free" || rows.length <= env.FREE_ROW_LIMIT) {
     return { rows, truncated: null };
   }
   return {

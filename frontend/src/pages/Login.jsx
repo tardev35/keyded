@@ -37,7 +37,7 @@ export default function Login() {
         <form onSubmit={submit} className="space-y-3 rounded-xl border border-line bg-surface p-5">
           <div>
             <h1 className="text-base font-semibold">เข้าสู่ระบบ</h1>
-            <p className="mt-0.5 text-xs text-muted">เครื่องมือวิจัยคำค้นหาจากข้อมูล Google Ads</p>
+            <p className="mt-0.5 text-xs text-muted">เครื่องมือวิจัยคำค้น</p>
           </div>
 
           <input
