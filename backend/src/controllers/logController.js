@@ -18,14 +18,24 @@ export async function myLogs(req, res, next) {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+    // ต้นทุนที่จ่ายให้ DataForSEO เป็นข้อมูลภายใน ผู้ใช้ทั่วไปเห็นแค่ของตัวเอง
+    // ผู้ดูแลเห็นของทุกคน เพราะต้องตอบให้ได้ว่าเดือนนี้จ่ายไปเท่าไหร่และใครใช้
+    const isAdmin = req.user.role === "admin";
+    const scope = isAdmin ? "" : " WHERE l.user_id = $1";
+    const scopeArgs = isAdmin ? [] : [req.user.id];
+
     const { rows } = await query(
-      "SELECT id, keyword, location_code, language_code, status, credits_used," +
-      " result_count, duration_ms, api_cost, created_at" +
-      " FROM search_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
-      [req.user.id, limit, offset]
+      "SELECT l.id, l.keyword, l.location_code, l.language_code, l.status, l.credits_used," +
+      " l.result_count, l.duration_ms, l.api_cost, l.created_at, u.username, u.name AS display_name" +
+      " FROM search_logs l LEFT JOIN users u ON u.id = l.user_id" +
+      scope +
+      " ORDER BY l.created_at DESC LIMIT $" + (scopeArgs.length + 1) +
+      " OFFSET $" + (scopeArgs.length + 2),
+      [...scopeArgs, limit, offset]
     );
 
-    // ยอดรวมคิดจากทุกแถวของผู้ใช้ ไม่ใช่แค่หน้าที่กำลังดู
+    // ยอดรวมคิดจากทุกแถวในขอบเขตที่เห็น ไม่ใช่แค่หน้าที่กำลังดู
     // ส่วน savedCount คือครั้งที่โดนแคช ซึ่งถ้าไม่มีแคชจะต้องจ่ายเพิ่มอีกครั้งละเท่าราคาป้าย
     const sums = await query(
       "SELECT count(*)::int AS n," +
@@ -33,13 +43,10 @@ export async function myLogs(req, res, next) {
       " COALESCE(sum(credits_used), 0)::int AS credits," +
       " count(*) FILTER (WHERE status = 'cached')::int AS cached," +
       " count(*) FILTER (WHERE status = 'timeout')::int AS timeouts" +
-      " FROM search_logs WHERE user_id = $1",
-      [req.user.id]
+      " FROM search_logs l" + scope,
+      scopeArgs
     );
     const s = sums.rows[0];
-
-    // ต้นทุนที่จ่ายให้ DataForSEO เป็นข้อมูลภายใน ผู้ใช้ทั่วไปเห็นแค่โควตาของตัวเอง
-    const isAdmin = req.user.role === "admin";
 
     return res.json({
       total: s.n,
@@ -62,6 +69,8 @@ export async function myLogs(req, res, next) {
       },
       items: rows.map((r) => ({
         id: String(r.id),
+        username: r.username,
+        displayName: r.display_name,
         keyword: r.keyword,
         locationCode: r.location_code,
         languageCode: r.language_code,

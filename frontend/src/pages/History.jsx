@@ -47,7 +47,10 @@ export default function History() {
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5">
       <div>
         <h1 className="text-lg font-semibold">ประวัติการค้นหา</h1>
-        <p className="text-xs text-muted">คลิกที่แถวเพื่อเปิดดูผลเดิม · ผลที่ยังอยู่ในแคชเปิดดูได้ฟรี ไม่หักเครดิต</p>
+        <p className="text-xs text-muted">
+          คลิกที่แถวเพื่อเปิดดูผลเดิม · ผลที่ยังอยู่ในแคชเปิดดูได้ฟรี ไม่หักเครดิต
+          {isAdmin ? " · ผู้ดูแลเห็นการค้นหาของทุกคน" : ""}
+        </p>
       </div>
 
       <div className={"grid grid-cols-2 gap-3 " + (showCost ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
@@ -86,6 +89,7 @@ export default function History() {
           <thead className="border-b border-line bg-raised text-xs text-muted">
             <tr>
               <th className="px-3 py-2 text-left font-medium">เวลา</th>
+              {isAdmin ? <th className="px-3 py-2 text-left font-medium">ผู้ใช้</th> : null}
               <th className="px-3 py-2 text-left font-medium">คำค้นหา</th>
               {isAdmin ? <th className="px-3 py-2 text-left font-medium">สถานะ</th> : null}
               <th className="px-3 py-2 text-right font-medium">คำที่ได้</th>
@@ -107,6 +111,12 @@ export default function History() {
                 <td className="whitespace-nowrap px-3 py-2 text-xs text-muted">
                   {new Date(row.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" })}
                 </td>
+                {isAdmin ? (
+                  <td className="px-3 py-2 text-xs">
+                    <div className="font-medium">{row.username || "—"}</div>
+                    {row.displayName ? <div className="text-[10px] text-faint">{row.displayName}</div> : null}
+                  </td>
+                ) : null}
                 <td className="px-3 py-2 font-medium">
                   {row.keyword}
                   {canOpen ? <span className="ml-2 text-[10px] text-faint">เปิดดูผล</span> : null}
@@ -138,7 +148,7 @@ export default function History() {
               );
             })}
             {data.items.length === 0 ? (
-              <tr><td colSpan={isAdmin ? 7 : 5} className="px-3 py-10 text-center text-sm text-faint">ยังไม่มีประวัติการค้นหา</td></tr>
+              <tr><td colSpan={isAdmin ? 8 : 5} className="px-3 py-10 text-center text-sm text-faint">ยังไม่มีประวัติการค้นหา</td></tr>
             ) : null}
           </tbody>
         </table>
