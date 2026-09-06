@@ -28,25 +28,35 @@ export default function Dashboard() {
     api.get("/keywords/markets").then((r) => {
       setMarkets(r.data);
       const kw = params.get("kw");
+      const kws = params.get("kws");
       const loc = Number(params.get("loc")) || r.data.defaultLocation;
       const lang = params.get("lang") || r.data.defaultLanguage;
       setMarket({ locationCode: loc, languageCode: lang });
 
       // เปิดจากหน้าประวัติ — ยิงครั้งเดียวแล้วล้าง query ทิ้งทันที
       // ไม่งั้นกดรีเฟรชหรือกดย้อนกลับจะยิงซ้ำโดยที่ผู้ใช้ไม่ได้สั่ง ซึ่งอาจเป็นเงินจริง
-      if (kw && !opened.current) {
+      if ((kw || kws) && !opened.current) {
         opened.current = true;
         setParams({}, { replace: true });
-        run({ path: "/keywords/search", body: { keyword: kw, locationCode: loc, languageCode: lang } });
+        run(kws
+          ? { path: "/keywords/bulk", body: { keywords: kws.split("\n"), locationCode: loc, languageCode: lang } }
+          : { path: "/keywords/search", body: { keyword: kw, locationCode: loc, languageCode: lang } });
       }
     });
   }, []);
 
-  useEffect(() => setFocused(null), [result]);
+  // กราฟเปิดมาที่คำที่ผู้ใช้ค้น ไม่ใช่ผลรวมทุกคำ — ผลรวมเอาไปเทียบกับเครื่องมืออื่นไม่ได้
+  // เพราะแต่ละเจ้าแถมคำลูกมาไม่เท่ากัน คนอ่านจึงเห็นเลขไม่ตรงทั้งที่ข้อมูลตรง
+  // ผลรวมยังดูได้อยู่ด้วยปุ่ม "ดูทุกคำ" บนหัวกราฟ
+  useEffect(() => {
+    const rows = result?.rows ?? [];
+    const seed = result?.mode === "bulk" ? rows[0]?.keyword : result?.keyword;
+    setFocused(seed && rows.some((r) => r.keyword === seed) ? seed : null);
+  }, [result]);
 
   const focusedRow = focused ? (result?.rows ?? []).find((r) => r.keyword === focused) ?? null : null;
 
-  const unlimited = user?.role === "admin";
+  const unlimited = user?.role === "admin" || user?.creditsDaily === 0;
   const outOfCredit = !unlimited && (user?.creditsLeft ?? 0) <= 0;
 
   return (
@@ -119,9 +129,6 @@ export default function Dashboard() {
             source={result.source}
             fetchedAtThai={result.fetchedAtThai}
             ageDays={result.ageDays}
-            engine={result.engine}
-            fellBack={result.fellBack}
-            showSource={unlimited}
           />
 
           <TrendChart

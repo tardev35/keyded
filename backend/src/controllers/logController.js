@@ -27,7 +27,8 @@ export async function myLogs(req, res, next) {
 
     const { rows } = await query(
       "SELECT l.id, l.keyword, l.location_code, l.language_code, l.status, l.credits_used," +
-      " l.result_count, l.duration_ms, l.api_cost, l.created_at, u.username, u.name AS display_name" +
+      " l.result_count, l.duration_ms, l.api_cost, l.created_at, l.keywords," +
+      " u.username, u.name AS display_name" +
       " FROM search_logs l LEFT JOIN users u ON u.id = l.user_id" +
       scope +
       " ORDER BY l.created_at DESC LIMIT $" + (scopeArgs.length + 1) +
@@ -72,6 +73,8 @@ export async function myLogs(req, res, next) {
         username: r.username,
         displayName: r.display_name,
         keyword: r.keyword,
+        // null = ไม่รู้ว่าเป็นคำไหนบ้าง (แถวเก่าก่อนมีคอลัมน์นี้) ต่างจาก [] ที่แปลว่าไม่มีคำ
+        keywords: Array.isArray(r.keywords) ? r.keywords : null,
         locationCode: r.location_code,
         languageCode: r.language_code,
         status: r.status,

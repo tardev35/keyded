@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { query } from "../db/index.js";
+import { env } from "../config/env.js";
 import { STATUS_TH } from "./logController.js";
 import { fetchAccount } from "../services/dataforseo.js";
 import { nextResetAt } from "../lib/time.js";
@@ -41,7 +42,12 @@ const USERNAME_OK = /^[a-z0-9][a-z0-9._-]{2,31}$/;
 
 export async function listTeams(req, res, next) {
   try {
-    const { rows } = await query("SELECT id, name FROM teams ORDER BY name");
+    // เรียงตามเลขในชื่อ ไม่ใช่ตามตัวอักษร ไม่งั้น "ทีม 10" จะมาก่อน "ทีม 2"
+    // แล้วคนกรอกจะหาทีมตัวเองในดรอปดาวน์ไม่เจอ
+    const { rows } = await query(
+      "SELECT id, name FROM teams" +
+      " ORDER BY NULLIF(regexp_replace(name, '[^0-9]', '', 'g'), '')::int NULLS LAST, name"
+    );
     return res.json({ items: rows.map((t) => ({ id: String(t.id), name: t.name })) });
   } catch (err) {
     return next(err);
@@ -219,6 +225,61 @@ export async function allLogs(req, res, next) {
       [limit]
     );
     return res.json({ items: rows.map((r) => ({ ...r, id: String(r.id) })) });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ยอดคงเหลือมาจาก /appendix/user_data ซึ่งราคา $0 (วัดจริง 4 ก.ย. 2569) แต่ยังเป็นคำขอออกนอกบ้าน
+// ถ้าเรียกทุกครั้งที่เปิดหน้าประวัติ หน้าจะช้าตามความเร็วของ DataForSEO โดยไม่ได้อะไรเพิ่ม
+// ยอดขยับเฉพาะตอนมีคนค้นหา ถือค่าไว้หนึ่งนาทีจึงเพียงพอ
+const BALANCE_TTL_MS = 60000;
+let balanceCache = { balance: null, at: 0, fresh: false };
+
+async function readBalance() {
+  const now = Date.now();
+  if (now - balanceCache.at < BALANCE_TTL_MS) return balanceCache;
+
+  let balance = null;
+  try {
+    const account = await fetchAccount();
+    if (account.ok && account.balance !== null && account.balance !== undefined) {
+      balance = Number(account.balance);
+    }
+  } catch {
+    balance = null;
+  }
+
+  // ดึงไม่ได้ให้ถือยอดเดิมไว้แล้วบอกว่าไม่สด · ห้ามตกไปเป็น 0 เพราะ "ไม่รู้" ไม่ใช่ "เงินหมด"
+  balanceCache =
+    balance === null
+      ? { balance: balanceCache.balance, at: now, fresh: false }
+      : { balance, at: now, fresh: true };
+  return balanceCache;
+}
+
+export async function accountBalance(req, res, next) {
+  try {
+    const cached = await readBalance();
+    const { rows } = await query(
+      "SELECT CAST(avg(api_cost) FILTER (WHERE api_cost > 0) AS float) AS avg_cost," +
+      " count(*) FILTER (WHERE api_cost > 0)::int AS paid" +
+      " FROM search_logs"
+    );
+
+    // ราคาต่อครั้งไม่คงที่ Labs กับ Google Ads ต่างกันเกือบสี่เท่า จำนวนครั้งที่เหลือ
+    // จึงประเมินจากค่าเฉลี่ยที่จ่ายจริงของเราเอง ไม่ใช่ราคาป้าย
+    const avgCost = rows[0].avg_cost === null ? null : Number(rows[0].avg_cost);
+
+    return res.json({
+      balance: cached.balance,
+      fresh: cached.fresh,
+      checkedAt: new Date(cached.at).toISOString(),
+      avgCost,
+      searchesLeft: cached.balance !== null && avgCost ? Math.floor(cached.balance / avgCost) : null,
+      paidSearches: rows[0].paid,
+      usdThb: env.USD_THB,
+    });
   } catch (err) {
     return next(err);
   }

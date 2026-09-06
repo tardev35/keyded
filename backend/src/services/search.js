@@ -298,6 +298,7 @@ export async function runBulkSearch({ user, keywords: rawList, locationCode, lan
   const credits = await commitBulkSearch({
     userId: user.id,
     keyword: list[0] + (list.length > 1 ? " +" + (list.length - 1) + " คำ" : ""),
+    keywords: list,
     locationCode,
     languageCode,
     entries,

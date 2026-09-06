@@ -13,10 +13,7 @@ function Card({ label, hint, children, foot }) {
   );
 }
 
-export default function MetricsCards({ summary, truncated, source, fetchedAtThai, ageDays, engine, fellBack, showSource }) {
-  const sourceNote = showSource
-    ? " · จาก " + (engine === "labs" ? "Labs" : "Google Ads") + (fellBack ? " (Labs ไม่มีคำนี้)" : "")
-    : "";
+export default function MetricsCards({ summary, truncated, source, fetchedAtThai, ageDays }) {
 
   const trendUp = summary.trendPct !== null && summary.trendPct > 0;
   const trendDown = summary.trendPct !== null && summary.trendPct < 0;
@@ -81,8 +78,8 @@ export default function MetricsCards({ summary, truncated, source, fetchedAtThai
           hint="ตัวเลขของ Google Ads อัปเดตเดือนละครั้งและช้ากว่าปัจจุบันประมาณสองเดือน · ระบบจะดึงใหม่ทันทีที่ Google ออกข้อมูลเดือนถัดไป ไม่ต้องรอครบอายุแคช"
           foot={
             source === "cache"
-              ? "ครอบคลุมถึง " + monthLabel(summary.monthsTo) + " · ดึงเมื่อ " + fetchedAtThai + sourceNote
-              : "เพิ่งดึงสด · " + fetchedAtThai + sourceNote
+              ? "ครอบคลุมถึง " + monthLabel(summary.monthsTo) + " · ดึงเมื่อ " + fetchedAtThai
+              : "เพิ่งดึงสด · " + fetchedAtThai
           }
         >
           <span className="text-base">

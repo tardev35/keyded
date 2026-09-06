@@ -224,21 +224,24 @@ function UserRow({ user, me, teams, onPatch, onDelete }) {
         {user.role === "admin" ? (
           <span className="text-xs text-faint">ไม่จำกัด</span>
         ) : (
-          <input
-            type="number"
-            min={0}
-            value={quota}
-            onChange={(e) => setQuota(e.target.value)}
-            onBlur={saveQuota}
-            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-            className={field + " w-20 text-right text-xs tabular-nums"}
-          />
+          <div>
+            <input
+              type="number"
+              min={0}
+              value={quota}
+              onChange={(e) => setQuota(e.target.value)}
+              onBlur={saveQuota}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              className={field + " w-20 text-right text-xs tabular-nums"}
+            />
+            {user.creditsDaily === 0 ? <div className="mt-0.5 text-[10px] text-up">ไม่จำกัด</div> : null}
+          </div>
         )}
       </td>
 
       <td className="px-3 py-2 text-right">
-        <span className="tabular-nums">{user.role === "admin" ? "—" : fmtNumber(user.creditsLeft)}</span>
-        {user.role === "admin" ? null : (
+        <span className="tabular-nums">{user.role === "admin" || user.creditsDaily === 0 ? "—" : fmtNumber(user.creditsLeft)}</span>
+        {user.role === "admin" || user.creditsDaily === 0 ? null : (
           <button
             type="button"
             onClick={() => onPatch(user.id, { resetToday: true })}
@@ -417,6 +420,7 @@ export default function Admin() {
       <p className="pb-6 text-[11px] leading-relaxed text-faint">
         โควตาต่อวันตั้งแยกรายคนได้ · แก้แล้วมีผลทันที ถ้าลดโควตาต่ำกว่าที่เหลืออยู่ ระบบจะตัดยอดคงเหลือลงตาม ·
         ปุ่มรีเซ็ตคืนโควตาของวันนี้ให้เต็มโดยไม่ต้องรอเที่ยงคืน · ผู้ดูแลค้นหาได้ไม่จำกัดและไม่ถูกหักเครดิต ·
+        ตั้งโควตาเป็น 0 = ค้นได้ไม่จำกัด ถ้าจะห้ามใช้งานให้กดระงับแทน ·
         รหัสผ่านเก็บเป็น hash อ่านกลับไม่ได้ ลืมแล้วต้องตั้งใหม่อย่างเดียว
       </p>
     </div>

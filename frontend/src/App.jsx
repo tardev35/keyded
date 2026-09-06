@@ -22,6 +22,7 @@ function NavLink({ to, children }) {
 
 function Shell({ children }) {
   const { user, logout } = useAuth();
+  const unlimited = user?.role === "admin" || user?.creditsDaily === 0;
   return (
     <div className="min-h-full">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
@@ -35,10 +36,10 @@ function Shell({ children }) {
 
           <div className="ml-auto flex items-center gap-2">
             <span
-              title={user?.role === "admin" ? "ผู้ดูแลค้นหาได้ไม่จำกัด" : "รอบใหม่เริ่มเที่ยงคืนตามเวลาไทย"}
+              title={unlimited ? "บัญชีนี้ค้นหาได้ไม่จำกัด" : "รอบใหม่เริ่มเที่ยงคืนตามเวลาไทย"}
               className="hidden rounded-lg border border-line px-2 py-1 text-[11px] text-muted sm:block"
             >
-              {user?.role === "admin"
+              {unlimited
                 ? "ค้นหาไม่จำกัด"
                 : "เหลือวันนี้ " + (user?.creditsLeft ?? 0) + "/" + (user?.creditsDaily ?? 0)}
             </span>

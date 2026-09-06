@@ -48,6 +48,7 @@ router.post("/admin/users", requireAuth, requireAdmin, admin.createUser);
 router.patch("/admin/users/:id", requireAuth, requireAdmin, admin.updateUser);
 router.delete("/admin/users/:id", requireAuth, requireAdmin, admin.deleteUser);
 router.get("/admin/stats", requireAuth, requireAdmin, admin.stats);
+router.get("/admin/balance", requireAuth, requireAdmin, admin.accountBalance);
 router.get("/admin/logs", requireAuth, requireAdmin, admin.allLogs);
 
 export default router;

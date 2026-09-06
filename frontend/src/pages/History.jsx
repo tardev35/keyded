@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../lib/api.js";
 import { fmtNumber } from "../lib/format.js";
+import { useAuth } from "../hooks/useAuth.jsx";
 
 const TONE = {
   ok: "text-up",
@@ -14,7 +15,24 @@ const TONE = {
 };
 
 const usd = (v) => (v === null || v === undefined ? "—" : "$" + Number(v).toFixed(4));
+const usd2 = (v) => (v === null || v === undefined ? "—" : "$" + Number(v).toFixed(2));
 const baht = (v, rate) => (v === null || v === undefined ? "—" : "฿" + (Number(v) * rate).toFixed(2));
+
+// เตือนตอนยังพอมีเวลาเติม ไม่ใช่ตอนยิงไม่ออกแล้ว
+const LOW_BALANCE_USD = 5;
+
+// แถวที่มาจากการค้นหาหลายคำเก็บชื่อไว้เป็นป้าย "spy1688 +14 คำ" ซึ่งไม่ใช่คำค้นจริง
+// ถ้าส่งป้ายนี้ไปค้นจะได้ผลว่างหรือ error · แถวที่บันทึกก่อน 6 ก.ย. 2569 ไม่มีรายการคำเต็ม
+// เก็บไว้ จึงเปิดกลับไม่ได้ตลอดไป ต้องทำให้กดไม่ได้ ไม่ใช่ปล่อยให้กดแล้วพัง
+const BULK_LABEL = / \+\d+ คำ$/;
+
+const openLink = (row) => {
+  const market = "&loc=" + row.locationCode + "&lang=" + row.languageCode;
+  const list = Array.isArray(row.keywords) ? row.keywords : null;
+  if (list && list.length > 1) return "/?kws=" + encodeURIComponent(list.join("\n")) + market;
+  if (list && list.length === 1) return "/?kw=" + encodeURIComponent(list[0]) + market;
+  return BULK_LABEL.test(row.keyword) ? null : "/?kw=" + encodeURIComponent(row.keyword) + market;
+};
 
 function Stat({ label, value, foot, tone = "" }) {
   return (
@@ -28,12 +46,23 @@ function Stat({ label, value, foot, tone = "" }) {
 
 export default function History() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [balance, setBalance] = useState(null);
+
+  const admin = user?.role === "admin";
 
   useEffect(() => {
     api.get("/logs?limit=200").then((r) => setData(r.data)).catch((e) => setError(errorText(e)));
   }, []);
+
+  // แยกคำขอออกมา เพราะยอดคงเหลือต้องถาม DataForSEO ส่วนประวัติอ่านจากฐานข้อมูลเราเอง
+  // ถ้ารวมกัน ต้นทางช้าทีเดียวหน้าประวัติค้างทั้งหน้าทั้งที่ข้อมูลพร้อมอยู่แล้ว
+  useEffect(() => {
+    if (!admin) return;
+    api.get("/admin/balance").then((r) => setBalance(r.data)).catch(() => setBalance({ balance: null, fresh: false }));
+  }, [admin]);
 
   if (error) return <div className="mx-auto max-w-5xl px-4 py-6 text-sm text-down">{error}</div>;
   if (!data) return <div className="mx-auto max-w-5xl px-4 py-6 text-sm text-muted">กำลังโหลด…</div>;
@@ -42,6 +71,15 @@ export default function History() {
   const isAdmin = Boolean(data.isAdmin);
   const showCost = isAdmin;
   const rate = t.usdThb;
+
+  const left = balance?.balance ?? null;
+  const balanceFoot = !balance
+    ? "กำลังตรวจสอบ…"
+    : left === null
+      ? "ตรวจสอบยอดกับต้นทางไม่สำเร็จ ยอดจริงอาจต่างจากนี้"
+      : baht(left, rate) +
+        (balance.searchesLeft ? " · ค้นได้อีกราว " + fmtNumber(balance.searchesLeft) + " ครั้ง" : "") +
+        (balance.fresh ? "" : " · ยอดล่าสุดที่ดึงได้");
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5">
@@ -53,7 +91,15 @@ export default function History() {
         </p>
       </div>
 
-      <div className={"grid grid-cols-2 gap-3 " + (showCost ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
+      <div className={"grid grid-cols-2 gap-3 " + (showCost ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3")}>
+        {showCost ? (
+          <Stat
+            label="ยอดคงเหลือทั้งหมด"
+            value={balance ? usd2(left) : "…"}
+            tone={left !== null && left < LOW_BALANCE_USD ? "text-down" : "text-up"}
+            foot={balanceFoot}
+          />
+        ) : null}
         <Stat label="ค้นหาทั้งหมด" value={fmtNumber(t.searches)} foot={"เครดิตที่ใช้ " + fmtNumber(t.credits)} />
         {showCost ? null : (
           <Stat label="ใช้แคชได้" value={fmtNumber(t.cached)} tone="text-up" foot="ครั้งที่ตอบทันทีและไม่ถูกหักเครดิต" />
@@ -101,11 +147,12 @@ export default function History() {
           <tbody>
             {data.items.map((row) => {
               // เปิดผลเดิมได้เฉพาะครั้งที่ได้ข้อมูลจริง · ครั้งที่พลาดไม่มีอะไรให้ดู
-              const canOpen = row.status === "ok" || row.status === "cached";
+              const link = (row.status === "ok" || row.status === "cached") ? openLink(row) : null;
+              const canOpen = link !== null;
               return (
               <tr
                 key={row.id}
-                onClick={canOpen ? () => navigate("/?kw=" + encodeURIComponent(row.keyword) + "&loc=" + row.locationCode + "&lang=" + row.languageCode) : undefined}
+                onClick={canOpen ? () => navigate(link) : undefined}
                 className={"border-b border-line/50 last:border-0 " + (canOpen ? "cursor-pointer hover:bg-raised" : "")}
               >
                 <td className="whitespace-nowrap px-3 py-2 text-xs text-muted">

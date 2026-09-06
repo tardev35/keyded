@@ -34,7 +34,10 @@ export async function loadUserForUpdate(client, userId) {
   return user;
 }
 
-export const isUnlimited = (user) => user.role === "admin";
+// โควตา 0 แปลว่าไม่จำกัด ไม่ใช่ค้นไม่ได้ — ผู้ดูแลใช้ค่านี้อยู่แล้วตั้งแต่ QUOTA_BY_ROLE
+// ทำให้ทีมงานได้สิทธิ์ค้นไม่จำกัดโดยไม่ต้องยกเป็น admin ซึ่งจะพลอยเห็นค่าใช้จ่ายของทุกคนไปด้วย
+// ถ้าจะห้ามใครใช้งาน ต้องกดระงับ (disabled_at) การตั้งโควตาเป็น 0 จะได้ผลตรงกันข้าม
+export const isUnlimited = (user) => user.role === "admin" || Number(user.credits_daily) === 0;
 
 export async function assertHasCredit(client, userId) {
   const user = await loadUserForUpdate(client, userId);
@@ -48,8 +51,8 @@ async function insertLog(client, entry) {
   const { rows } = await client.query(
     "INSERT INTO search_logs" +
     " (user_id, keyword, location_code, language_code, status, credits_used," +
-    "  result_count, duration_ms, api_cost, error)" +
-    " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id",
+    "  result_count, duration_ms, api_cost, error, keywords)" +
+    " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id",
     [
       entry.userId,
       entry.keyword,
@@ -61,6 +64,7 @@ async function insertLog(client, entry) {
       entry.durationMs ?? null,
       entry.apiCost ?? null,
       entry.error ?? null,
+      entry.keywords ? JSON.stringify(entry.keywords) : null,
     ]
   );
   return rows[0].id;
@@ -108,7 +112,7 @@ export async function commitPaidSearch({ userId, keyword, locationCode, language
 // โหมดหลายคำหักครั้งละ 1 เท่ากับโหมดคำเดียว ตามข้อ 2.4 — หักตาม "การค้นหา" ไม่ใช่ตามจำนวนคำ
 // (ตัดสินใจ 5 ก.ย. 2569) · ตัวคุมต้นทุนจึงเป็นเพดานจำนวนคำต่อครั้ง ไม่ใช่จำนวนเครดิต
 // ถ้าวันหนึ่งค่า API ต่อเครดิตสูงเกินรับไหว ให้ลด KEYFIN_BULK_MAX ไม่ใช่กลับมาหักหลายเครดิต
-export async function commitBulkSearch({ userId, keyword, locationCode, languageCode, entries, charge, meta }) {
+export async function commitBulkSearch({ userId, keyword, keywords, locationCode, languageCode, entries, charge, meta }) {
   return withTransaction(async (client) => {
     const user = await loadUserForUpdate(client, userId);
     let creditsUsed = 0;
@@ -122,7 +126,7 @@ export async function commitBulkSearch({ userId, keyword, locationCode, language
       );
       if (!rows.length) {
         await insertLog(client, {
-          userId, keyword, locationCode, languageCode,
+          userId, keyword, keywords, locationCode, languageCode,
           status: "quota_exceeded", creditsUsed: 0,
           resultCount: meta.resultCount, durationMs: meta.durationMs, apiCost: meta.apiCost,
           error: "ยิง API สำเร็จแล้วแต่เครดิตไม่พอตอนหัก (ต้องใช้ " + charge + ")",
@@ -136,7 +140,7 @@ export async function commitBulkSearch({ userId, keyword, locationCode, language
     for (const entry of entries) await writeCache(client, entry);
 
     const logId = await insertLog(client, {
-      userId, keyword, locationCode, languageCode,
+      userId, keyword, keywords, locationCode, languageCode,
       status: charge > 0 ? "ok" : "cached", creditsUsed,
       resultCount: meta.resultCount, durationMs: meta.durationMs, apiCost: meta.apiCost,
     });
