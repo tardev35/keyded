@@ -43,7 +43,7 @@ function TrendChart({ chart, trendPct, trendMonths, title, onClear }) {
             {up ? "↑ " : down ? "↓ " : ""}
             {fmtTrend(trendPct)}
           </span>
-          <span className="ml-1.5 text-xs text-faint">เดือนล่าสุดเทียบเดือนแรกของ {trendMonths} เดือน</span>
+          <span className="ml-1.5 text-xs text-faint">เทียบกับเดือนแรกที่มีคนค้น ห่างกัน {trendMonths} เดือน</span>
         </div>
       </div>
 

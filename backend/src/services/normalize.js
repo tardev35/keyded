@@ -18,19 +18,33 @@ function monthsAscending(monthly) {
     .sort((a, b) => a.year - b.year || a.month - b.month);
 }
 
-// สูตรเดียวกับ KeywordTool — (เดือนล่าสุด - เดือนแรกสุด) / เดือนแรกสุด
-// ปรับให้ตรงกัน 5 ก.ย. 2569 เพื่อให้ตัวเลขเทียบกับเครื่องมือที่ทีมใช้อยู่ได้
-// เดิมเราเทียบครึ่งหลังกับครึ่งแรก ซึ่งนิ่งกว่าแต่คนละเลขกับที่ทีมคุ้นตา
+// สูตรเดียวกับ KeywordTool — (เดือนล่าสุด - เดือนแรกที่ไม่เป็นศูนย์) / เดือนแรกที่ไม่เป็นศูนย์
 //
-// ผลข้างเคียงที่ต้องรู้ — สูตรนี้ดูแค่สองเดือนหัวท้าย ไม่สนใจ 23 เดือนตรงกลาง
+// ฐานคือเดือนแรกที่ "มีคนค้นจริง" ไม่ใช่เดือนแรกของหน้าต่าง · เดิมเราใช้เดือนแรกสุด
+// ซึ่งแบรนด์ใหม่จะเป็น 0 แล้วหารศูนย์ไม่ได้ ทุกคำแบรนด์จึงขึ้น "—" ทั้งที่โตขึ้นจริง
+// ซึ่งเป็นคำที่ทีมสนใจที่สุด (แก้ 7 ก.ย. 2569)
+//
+// ยืนยันกับ API ของ KeywordTool แล้วสามคำ — spy1688 (720-110)/110 = +555%
+// rumruay999 (390-20)/20 = +1,850% · mz88 = +98,900% ตรงกันทั้งสามคำ
+//
+// ผลข้างเคียงที่ต้องรู้ — สูตรนี้ดูแค่สองเดือนหัวท้าย ไม่สนใจเดือนตรงกลาง
 // พอ Google ปัดค่าเป็นช่วงด้วย ตัวเลขจึงกระโดดแรง · ห้ามเอาไปเรียงลำดับเป็นหลัก
 function trendOf(months) {
   const usable = (months || []).filter((m) => known(m.volume));
   if (usable.length < 2) return { trendPct: null, trendMonths: usable.length };
-  const oldest = usable[0].volume;
+
+  const from = usable.findIndex((m) => m.volume > 0);
+
+  // ไม่เคยมีเดือนไหนมีคนค้นเลย หรือเพิ่งมีเดือนเดียวคือเดือนล่าสุด — คำนวณการเติบโตไม่ได้
+  // เดือนเดียวคืนเป็น 0% จะอ่านว่า "ทรงตัว" ซึ่งตรงข้ามกับความจริงที่มันเพิ่งพุ่งขึ้นจากศูนย์
+  if (from === -1 || from === usable.length - 1) return { trendPct: null, trendMonths: usable.length };
+
+  const base = usable[from].volume;
   const newest = usable[usable.length - 1].volume;
-  if (oldest === 0) return { trendPct: null, trendMonths: usable.length };
-  return { trendPct: Math.round(((newest - oldest) / oldest) * 100), trendMonths: usable.length };
+  return {
+    trendPct: Math.round(((newest - base) / base) * 100),
+    trendMonths: usable.length - from,
+  };
 }
 
 function brandOf(annotations) {

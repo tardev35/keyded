@@ -50,7 +50,7 @@ export default function MetricsCards({ summary, truncated, source, fetchedAtThai
         <Card
           label="แนวโน้ม"
           hint="เทียบเดือนล่าสุดกับเดือนแรกสุดของช่วง (สูตรเดียวกับ KeywordTool) · ดูแค่สองเดือนหัวท้าย ไม่สนใจเดือนตรงกลาง และ Google ปัดค่าเป็นช่วงอยู่แล้ว ตัวเลขนี้จึงกระโดดแรง ใช้ดูทิศทางเท่านั้น"
-          foot={summary.trendMonths ? "เดือนล่าสุดเทียบเดือนแรกของ " + summary.trendMonths + " เดือน" : null}
+          foot={summary.trendMonths ? "เทียบเดือนล่าสุดกับเดือนแรกที่มีคนค้น · ห่างกัน " + summary.trendMonths + " เดือน" : null}
         >
           <span className={trendUp ? "text-up" : trendDown ? "text-down" : ""}>
             {trendUp ? "↑ " : trendDown ? "↓ " : ""}
