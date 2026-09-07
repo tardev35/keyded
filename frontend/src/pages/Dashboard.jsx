@@ -127,6 +127,29 @@ export default function Dashboard() {
             </div>
           ) : null}
 
+          {/* โหมดหลายคำใช้ endpoint search_volume ซึ่งไม่มีคำแบรนด์จำนวนมากในฐาน
+              วัดเจอ 6-7 ก.ย. 2569 — หวยพร้อม กับ theflash168 ทั้งชุดคืน null ที่นี่
+              แต่โหมดคำเดียวมีข้อมูลครบ · หน้าจอที่มีแต่ขีดโดยไม่บอกอะไร ทำให้ทีมคิดว่าระบบพัง
+              หรือคิดว่าคำนั้นไม่มีคนค้น ซึ่งผิดทั้งคู่ */}
+          {result.mode === "bulk" && result.summary.volumeUnknown > 0 ? (
+            <div className="rounded-xl border border-bar/40 bg-bar/10 px-4 py-3 text-sm">
+              <div className="font-medium">
+                {result.summary.volumeCounted === 0
+                  ? "โหมดหลายคำไม่มีข้อมูลของคำเหล่านี้เลยสักคำ (" + fmtNumber(result.summary.volumeUnknown) + " คำ)"
+                  : fmtNumber(result.summary.volumeUnknown) + " จาก " + fmtNumber(result.summary.totalKeywords) + " คำไม่มีข้อมูลในโหมดหลายคำ"}
+              </div>
+              <div className="mt-1 text-xs leading-relaxed text-muted">
+                เป็นไปได้สองอย่าง — <span className="font-medium text-ink">แบรนด์ใหม่ที่ Google ยังไม่มีปริมาณค้นหา</span>
+                {" "}ซึ่งจะได้ขีดทุกโหมด หรือ<span className="font-medium text-ink">คำที่มีเฉพาะในโหมดคำเดียว</span>
+                {" "}เพราะสองโหมดดึงจากคนละชุดข้อมูลของ Google
+              </div>
+              <div className="mt-1 text-xs leading-relaxed text-faint">
+                กดปุ่ม “ลองโหมดคำเดียว” ที่แถวของคำนั้นเพื่อตรวจอีกชุดหนึ่ง —
+                เป็นการดึงข้อมูลใหม่ และอาจได้ขีดเหมือนเดิมถ้าคำนั้นใหม่จริง
+              </div>
+            </div>
+          ) : null}
+
           <MetricsCards
             summary={result.summary}
             truncated={result.truncated}

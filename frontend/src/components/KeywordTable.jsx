@@ -230,7 +230,7 @@ export default function KeywordTable({ rows, truncated, focused, onFocus, onRetr
                   {row.volume === null && onRetrySingle ? (
                     <button
                       type="button"
-                      title="โหมดหลายคำกับโหมดคำเดียวดึงจากคนละชุดข้อมูลของ Google คำแบรนด์บางคำมีเฉพาะในโหมดคำเดียว"
+                      title="ตรวจอีกชุดข้อมูลหนึ่งของ Google · บางคำมีเฉพาะที่นั่น แต่ถ้าเป็นแบรนด์ใหม่จริงก็จะได้ขีดเหมือนเดิม"
                       onClick={(e) => { e.stopPropagation(); onRetrySingle(row.keyword); }}
                       className="mt-0.5 rounded border border-brand/40 px-1 text-[9px] leading-4 text-brand hover:bg-brandSoft"
                     >
