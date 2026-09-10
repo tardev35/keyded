@@ -141,6 +141,24 @@ export async function fetchKeywordIdeas({ keyword, locationCode, languageCode, m
   return unwrap(res, IDEAS);
 }
 
+// โหมดหลายคำเคยใช้ search_volume ซึ่งราคาเท่ากันและรับได้ทีละ 700 คำ แต่ฐานข้อมูลมันบาง
+// วัดจริง 8 ก.ย. 2569 — ยิงคำแบรนด์ 16 คำชุดเดียวกัน search_volume ได้ 4 คำ
+// ส่วน keywords_for_keywords ได้ 14 คำ ในราคา $0.09 เท่ากัน และตรงกับ KeywordTool ทุกค่า
+//
+// แลกมาด้วยเพดาน 20 คำต่อคำขอ ชุดใหญ่จึงแพงขึ้นตามจำนวนก้อน
+// (700 คำ = 35 คำขอ = $3.15 เทียบกับ $0.09 แบบเดิม) — คุมด้วย BULK_CHUNK
+//
+// endpoint นี้คืนคำที่เกี่ยวข้องแถมมาด้วย ซึ่งเก็บลงแคชไปเลยเพราะจ่ายไปแล้ว
+export async function fetchBulkMetrics({ keywords, locationCode, languageCode, monthsBack = env.MONTHS_BACK }) {
+  const res = await call(IDEAS, [{
+    keywords,
+    location_code: locationCode,
+    language_code: languageCode,
+    date_from: dateFromForMonths(monthsBack),
+  }]);
+  return unwrap(res, IDEAS);
+}
+
 export async function fetchSearchVolume({ keywords, locationCode, languageCode, monthsBack = env.MONTHS_BACK }) {
   const res = await call(VOLUME, [{
     keywords,

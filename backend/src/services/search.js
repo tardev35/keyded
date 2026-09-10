@@ -1,5 +1,5 @@
 import { env } from "../config/env.js";
-import { validateKeyword, fetchKeywordIdeas, fetchSearchVolume, fetchLabsSuggestions, DataForSeoError } from "./dataforseo.js";
+import { validateKeyword, fetchKeywordIdeas, fetchBulkMetrics, fetchLabsSuggestions, DataForSeoError } from "./dataforseo.js";
 import { normalizeRows, normalizeLabsRows, summarize, withTabs, markDuplicates, withFreshTrend } from "./normalize.js";
 import { readCache, readManyCache, makeKey, cacheKey, METRICS, IDEAS, LABS } from "./cache.js";
 import { schedule, estimateWaitSeconds } from "./queue.js";
@@ -264,7 +264,7 @@ export async function runBulkSearch({ user, keywords: rawList, locationCode, lan
     const job = schedule({
       userId: String(user.id),
       key: "bulk|" + locationCode + "|" + languageCode + "|" + batch.join("|").slice(0, 200),
-      run: () => fetchSearchVolume({ keywords: batch, locationCode, languageCode }),
+      run: () => fetchBulkMetrics({ keywords: batch, locationCode, languageCode }),
     });
     let api;
     try {

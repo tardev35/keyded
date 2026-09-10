@@ -49,8 +49,15 @@ export const env = {
   RATE_PER_MINUTE: num("KEYFIN_RATE_PER_MINUTE", 10),
   FREE_ROW_LIMIT: num("KEYFIN_FREE_ROW_LIMIT", 50),
   USD_THB: num("KEYFIN_USD_THB", 33),
-  BULK_MAX: num("KEYFIN_BULK_MAX", 2100),
-  BULK_CHUNK: num("KEYFIN_BULK_CHUNK", 700),
+  // โหมดหลายคำย้ายไปใช้ keywords_for_keywords เมื่อ 8 ก.ย. 2569 เพื่อให้ครอบคลุมคำแบรนด์
+  // (วัดจริง 14/16 คำ เทียบกับ 4/16 ของ search_volume ในราคาเท่ากัน)
+  //
+  // endpoint นั้นรับได้สูงสุด 20 คำต่อคำขอ CHUNK จึงห้ามเกิน 20 เด็ดขาด
+  // และเพราะคิดเงินต่อคำขอ ชุดใหญ่จึงแพงขึ้นเป็นก้อนละ $0.09
+  // MAX 100 = ห้าก้อน = $0.45 ต่อการค้นหนึ่งครั้ง ซึ่งเป็นเพดานที่ยอมรับได้
+  // ของเดิม 2100 คำจะกลายเป็น $9.45 ต่อคลิกเดียว จึงลดลงมา
+  BULK_MAX: num("KEYFIN_BULK_MAX", 100),
+  BULK_CHUNK: Math.min(num("KEYFIN_BULK_CHUNK", 20), 20),
 
   ENGINE: process.env.KEYFIN_ENGINE === "google_ads" ? "google_ads" : "labs",
   LABS_LIMIT: num("KEYFIN_LABS_LIMIT", 100),
