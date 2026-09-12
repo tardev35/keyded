@@ -232,8 +232,12 @@ export default function KeywordTable({ rows, truncated, focused, onFocus, onRetr
                       type="button"
                       title="ตรวจอีกชุดข้อมูลหนึ่งของ Google · บางคำมีเฉพาะที่นั่น แต่ถ้าเป็นแบรนด์ใหม่จริงก็จะได้ขีดเหมือนเดิม"
                       onClick={(e) => { e.stopPropagation(); onRetrySingle(row.keyword); }}
-                      className="mt-0.5 rounded border border-brand/40 px-1 text-[9px] leading-4 text-brand hover:bg-brandSoft"
+                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 text-[11px] font-semibold leading-none text-white shadow-sm shadow-brand/30 transition hover:bg-brand/90 hover:shadow-md active:scale-95"
                     >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
+                      </svg>
                       ลองโหมดคำเดียว
                     </button>
                   ) : null}
