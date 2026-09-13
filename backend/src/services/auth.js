@@ -47,6 +47,20 @@ export async function register() {
   throw new AuthError("ระบบนี้ไม่เปิดให้สมัครเอง ติดต่อผู้ดูแลเพื่อขอบัญชี", 403);
 }
 
+// โควตารายวันไม่มีงานรีเซ็ตตอนเที่ยงคืน เดิมมีแค่การค้นหาที่สั่งรีเซ็ต แต่หน้าเว็บเห็นยอด 0
+// แล้วปิดปุ่มค้นหาไปก่อน คนที่ใช้ครบเมื่อวานจึงค้นไม่ได้อีกเลย (เจอกับ daw และ poon 13 ก.ย. 2569)
+// รีเซ็ตทุกครั้งที่ส่งข้อมูลผู้ใช้กลับไป ยอดบนหน้าเว็บจึงเป็นยอดจริงเสมอ
+// เป็น UPDATE เดียวที่มีเงื่อนไข เรียกพร้อมกันหลายที่ก็รีเซ็ตแค่ครั้งเดียว
+async function withFreshCredits(user) {
+  const { rows } = await query(
+    "UPDATE users SET credits_left = credits_daily, credits_reset_at = $2" +
+    " WHERE id = $1 AND (credits_reset_at IS NULL OR credits_reset_at <= now())" +
+    " RETURNING credits_left, credits_reset_at",
+    [user.id, nextResetAt()]
+  );
+  return rows[0] ? { ...user, ...rows[0] } : user;
+}
+
 // เข้าระบบด้วยชื่อผู้ใช้ ไม่ใช่อีเมล — บัญชีที่ผู้ดูแลสร้างให้อาจไม่มีอีเมลเลย
 export async function login({ username, password }) {
   const clean = String(username || "").trim().toLowerCase();
@@ -57,7 +71,8 @@ export async function login({ username, password }) {
   if (user.disabled_at) throw new AuthError("บัญชีนี้ถูกระงับการใช้งาน", 403);
 
   await query("UPDATE users SET last_login_at = now() WHERE id = $1", [user.id]);
-  return { user: publicUser(user), ...signTokens(user) };
+  const fresh = await withFreshCredits(user);
+  return { user: publicUser(fresh), ...signTokens(fresh) };
 }
 
 export async function refresh(refreshToken) {
@@ -71,13 +86,14 @@ export async function refresh(refreshToken) {
   const { rows } = await query(WITH_TEAM + " WHERE u.id = $1", [decoded.sub]);
   const user = rows[0];
   if (!user || user.disabled_at) throw new AuthError("บัญชีนี้ใช้งานไม่ได้แล้ว", 403);
-  return { user: publicUser(user), ...signTokens(user) };
+  const fresh = await withFreshCredits(user);
+  return { user: publicUser(fresh), ...signTokens(fresh) };
 }
 
 export async function currentUser(userId) {
   const { rows } = await query(WITH_TEAM + " WHERE u.id = $1", [userId]);
   if (!rows[0]) throw new AuthError("ไม่พบบัญชีผู้ใช้");
-  return publicUser(rows[0]);
+  return publicUser(await withFreshCredits(rows[0]));
 }
 
 export { publicUser, QUOTA_BY_ROLE, nextResetAt };

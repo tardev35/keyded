@@ -61,7 +61,10 @@ export default function Dashboard() {
   // นับแท่งที่วาดจริง ไม่ใช่ค่า monthsBack จาก config — ตั้งไว้ 24 แต่ Google คืนเดือนต้นทาง
   // มาด้วยจึงได้ 25 จุด หัวกราฟเคยเขียน 24 ทั้งที่มี 25 แท่ง (6 ก.ย. 2569)
   const chartMonths = result?.summary?.chart?.length ?? 0;
-  const outOfCredit = !unlimited && (user?.creditsLeft ?? 0) <= 0;
+  // เลยเวลารีเซ็ตแล้วให้ถือว่ามีโควตาใหม่ ถึงยอดบนหน้าเว็บจะยังเป็น 0 — เปิดแท็บค้างข้ามคืน
+  // ยอดจะไม่อัปเดตจนกว่าจะรีเฟรช ถ้ายังปิดปุ่มไว้จะค้นไม่ได้ ทั้งที่หลังบ้านรีเซ็ตให้ตอนกดค้นหาอยู่แล้ว
+  const resetDue = user?.creditsResetAt && Date.now() >= new Date(user.creditsResetAt).getTime();
+  const outOfCredit = !unlimited && !resetDue && (user?.creditsLeft ?? 0) <= 0;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-5 space-y-4">
