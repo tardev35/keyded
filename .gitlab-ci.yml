@@ -31,10 +31,24 @@ deploy-production:
   needs: [build-frontend]
   before_script:
     - apk add --no-cache openssh-client rsync
+    # ตัวแปรที่หายจะทำให้คำสั่งข้างล่างตายแบบไม่มีข้อความบอก — เช็กก่อนแล้วบอกชื่อที่ขาดไปตรงๆ
+    - |
+      miss=""
+      [ -n "${DEPLOY_HOST:-}" ] || miss="$miss DEPLOY_HOST"
+      [ -n "${DEPLOY_USER:-}" ] || miss="$miss DEPLOY_USER"
+      [ -n "${SSH_PRIVATE_KEY:-}" ] || miss="$miss SSH_PRIVATE_KEY"
+      if [ -n "$miss" ]; then
+        echo "หยุด — ไม่มีตัวแปร CI:$miss"
+        echo "ตั้งที่ Settings > CI/CD > Variables"
+        echo "ถ้าติ๊ก Protected ไว้ main ต้องเป็น protected branch ด้วย ไม่งั้นตัวแปรจะว่างแบบนี้"
+        exit 1
+      fi
+      echo "ปลายทาง $DEPLOY_USER@$DEPLOY_HOST · คีย์ยาว $(echo "$SSH_PRIVATE_KEY" | wc -c) ไบต์"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
     - chmod 600 ~/.ssh/id_ed25519
-    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+    # ไม่กลืน stderr แล้ว รอบก่อนมันตายตรงนี้เงียบๆ จน debug ไม่ได้ว่าเพราะโฮสต์ผิดหรือต่อไม่ติด
+    - ssh-keyscan -T 10 -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
   script:
     # หน้าเว็บ — ส่งขึ้นโฟลเดอร์ชั่วคราวก่อนแล้วค่อยสลับ ผู้ใช้จะได้ไม่เจอหน้าครึ่งๆ ระหว่างคัดลอก
     - rsync -az --delete frontend/dist/ "$DEPLOY_USER@$DEPLOY_HOST:/var/www/keyded/dist.new/"
