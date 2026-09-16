@@ -10,7 +10,8 @@ export async function listUsers(req, res, next) {
   try {
     const { rows } = await query(
       "SELECT u.id, u.username, u.name, u.role, u.credits_daily, u.credits_left," +
-      " u.created_at, u.last_login_at, u.disabled_at, u.team_id, t.name AS team_name" +
+      " u.created_at, u.last_login_at, u.disabled_at, u.team_id, t.name AS team_name," +
+      " (SELECT MAX(s.created_at) FROM search_logs s WHERE s.user_id = u.id) AS last_search_at" +
       " FROM users u LEFT JOIN teams t ON t.id = u.team_id" +
       " ORDER BY u.created_at DESC LIMIT 500"
     );
@@ -26,6 +27,7 @@ export async function listUsers(req, res, next) {
         creditsLeft: u.credits_left,
         createdAt: u.created_at,
         lastLoginAt: u.last_login_at,
+        lastSearchAt: u.last_search_at,
         disabled: Boolean(u.disabled_at),
       })),
     });

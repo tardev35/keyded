@@ -5,6 +5,13 @@ import { fmtNumber } from "../lib/format.js";
 
 const money = (v) => (v === null || v === undefined ? "—" : "$" + Number(v).toFixed(2));
 
+const whenTH = (v) =>
+  v ? new Date(v).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" }) : "—";
+
+// token อยู่ได้หลายวัน คนเลยค้นหาต่อได้โดยไม่ต้องล็อกอินใหม่ — last_login_at เลยเก่ากว่าความจริงเสมอ
+const lastUsed = (u) =>
+  [u.lastSearchAt, u.lastLoginAt].filter(Boolean).sort((a, b) => Date.parse(b) - Date.parse(a))[0] || null;
+
 const ROLE_OPTIONS = [
   { value: "free", label: "ผู้ใช้" },
   { value: "paid", label: "ผู้ใช้ (โควตาสูง)" },
@@ -253,10 +260,11 @@ function UserRow({ user, me, teams, onPatch, onDelete }) {
         )}
       </td>
 
-      <td className="px-3 py-2 text-right text-[11px] text-faint">
-        {user.lastLoginAt
-          ? new Date(user.lastLoginAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "short", timeStyle: "short" })
-          : "ยังไม่เคยเข้า"}
+      <td
+        className="px-3 py-2 text-right text-[11px] text-faint"
+        title={`ล็อกอินล่าสุด ${whenTH(user.lastLoginAt)} · ค้นหาล่าสุด ${whenTH(user.lastSearchAt)}`}
+      >
+        {lastUsed(user) ? whenTH(lastUsed(user)) : "ยังไม่เคยเข้า"}
       </td>
 
       <td className="px-3 py-2">
@@ -399,7 +407,7 @@ export default function Admin() {
               <th className="px-3 py-2 text-left font-medium">สิทธิ์</th>
               <th className="px-3 py-2 text-right font-medium">ค้นหา/วัน</th>
               <th className="px-3 py-2 text-right font-medium">เหลือวันนี้</th>
-              <th className="px-3 py-2 text-right font-medium">เข้าล่าสุด</th>
+              <th className="px-3 py-2 text-right font-medium">ใช้งานล่าสุด</th>
               <th className="px-3 py-2 text-right font-medium">จัดการ</th>
             </tr>
           </thead>
