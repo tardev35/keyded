@@ -127,7 +127,13 @@ export async function runSearch({ user, keyword: rawKeyword, locationCode, langu
       return { items: null, rows: only.rows, cost: only.cost, ms: only.ms, source: "google_ads", fellBack: false };
     }
     const labs = await fetchLabsSuggestions({ keyword, locationCode, languageCode, limit: env.LABS_LIMIT });
-    if (labs.items.length) {
+
+    // เงื่อนไขเดิมดูแค่ว่า Labs คืนคำกลับมาบ้างไหม แต่ฐานของ Labs มีคำแปรของแบรนด์
+    // ได้โดยไม่มีคำตั้งต้น คำที่ผู้ใช้พิมพ์จึงหายไปเงียบๆ และตัวเลขรวมผิดแบบดูไม่ออก
+    // วัดจริง 18 ก.ย. 2569 — yok789 ได้แต่ yok789 com กับ yok789.co รวม 250
+    // ทั้งที่คำตั้งต้นเองมี 4,400 ตรงกับ KeywordTool · ต้องตกไป Google Ads เหมือนตอน Labs ว่าง
+    const seed = cacheKey(keyword);
+    if (labs.items.some((it) => cacheKey(it.keyword ?? "") === seed)) {
       return { items: labs.items, rows: null, cost: labs.cost, ms: labs.ms, source: "labs", fellBack: false, totalCount: labs.totalCount };
     }
     const ads = await fetchKeywordIdeas({ keyword, locationCode, languageCode });
