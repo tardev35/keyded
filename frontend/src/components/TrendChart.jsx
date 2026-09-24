@@ -13,6 +13,18 @@ function ChartTooltip({ active, payload }) {
   );
 }
 
+// Recharts เลือกป้ายแกนเองโดยไล่จากแท่งแรก แล้วค่อยบังคับแท่งสุดท้ายเพิ่มทีหลัง
+// พอจำนวนแท่งเป็นเลขคู่ ป้ายสองเดือนก่อนแท่งสุดท้ายจึงหายไปทั้งคู่
+// (เจอ 24 ก.ย. 2569 — somtum168 26 แท่ง แกนข้ามจาก พ.ค. 69 ไป ส.ค. 69 เลย)
+// เดือนล่าสุดคือเดือนที่ทีมอ่านบ่อยที่สุด ป้ายแถวนั้นหายไม่ได้
+// จึงเลือกป้ายเองโดยนับถอยหลังจากแท่งสุดท้าย ระยะห่างเท่ากันทุกช่วงและจบที่เดือนล่าสุดเสมอ
+const axisTicks = (data) => {
+  const step = Math.max(1, Math.ceil(data.length / 13));
+  const out = [];
+  for (let i = data.length - 1; i >= 0; i -= step) out.unshift(data[i].label);
+  return out;
+};
+
 function TrendChart({ chart, trendPct, trendMonths, title, onClear }) {
   const data = (chart || []).map((m) => ({ ...m, label: monthLabel(m) }));
   if (data.length < 2) {
@@ -55,6 +67,7 @@ function TrendChart({ chart, trendPct, trendMonths, title, onClear }) {
               dataKey="label"
               tickLine={false}
               axisLine={false}
+              ticks={axisTicks(data)}
               interval="preserveStartEnd"
               minTickGap={18}
               tick={{ fontSize: 11, fill: "currentColor" }}
