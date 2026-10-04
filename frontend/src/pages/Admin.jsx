@@ -31,6 +31,70 @@ const makePassword = (len = 12) => {
 const field =
   "w-full rounded-lg border border-line bg-page px-3 py-2 text-sm outline-none placeholder:text-faint focus:border-brand";
 
+const dayTH = (v) =>
+  new Date(v + "T00:00:00+07:00").toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "short",
+  });
+
+// ค่าใช้จ่ายรายวันต้องดูเทียบกันได้ด้วยสายตา ไม่ใช่ไล่อ่านตัวเลขทีละแถว
+// วันที่แพงผิดปกติคือสัญญาณว่าแคชไม่ทำงาน ซึ่งเคยเกิดมาแล้ว 12-16 ก.ย. 2569
+// แถบยาวเทียบกับวันที่แพงที่สุดในหน้าต่าง 30 วัน
+function DailySpend({ rows, usdThb }) {
+  if (!rows?.length) return null;
+  const max = Math.max(...rows.map((r) => r.cost), 0.0001);
+  const total = rows.reduce((a, r) => a + r.cost, 0);
+  const baht = (v) => "฿" + Math.round(v * (usdThb || 33)).toLocaleString();
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <div className="text-sm font-medium">ค่าใช้จ่ายรายวัน · 30 วันล่าสุด</div>
+        <div className="text-xs text-muted">
+          รวม <span className="tabular-nums text-ink">{money(total)}</span>
+          <span className="ml-1 text-faint">{baht(total)}</span>
+        </div>
+      </div>
+
+      <div className="max-h-80 overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="text-xs text-muted">
+            <tr>
+              <th className="pb-1 text-left font-medium">วันที่</th>
+              <th className="pb-1 text-right font-medium">ค้นหา</th>
+              <th className="pb-1 text-right font-medium">โดนแคช</th>
+              <th className="pb-1 text-right font-medium">ค่า API</th>
+              <th className="pb-1 pl-3 text-left font-medium">เทียบกัน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const hit = r.searches ? Math.round((r.cached / r.searches) * 100) : null;
+              return (
+                <tr key={r.day} className="border-t border-line/60">
+                  <td className="py-1.5 whitespace-nowrap">{dayTH(r.day)}</td>
+                  <td className="py-1.5 text-right tabular-nums text-muted">{fmtNumber(r.searches)}</td>
+                  <td className="py-1.5 text-right tabular-nums text-faint">{hit === null ? "—" : hit + "%"}</td>
+                  <td className="py-1.5 text-right tabular-nums">
+                    {money(r.cost)}
+                    <span className="ml-1.5 text-[11px] text-faint">{baht(r.cost)}</span>
+                  </td>
+                  <td className="py-1.5 pl-3">
+                    <div className="h-2 w-full min-w-[4rem] overflow-hidden rounded-full bg-raised">
+                      <div className="h-full rounded-full bg-bar" style={{ width: Math.max(2, (r.cost / max) * 100) + "%" }} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value, foot, tone = "" }) {
   return (
     <div className="rounded-xl border border-line bg-surface px-4 py-3">
@@ -383,6 +447,8 @@ export default function Admin() {
           <Stat label="ยอดคงเหลือ DataForSEO" value={money(stats.account?.balance)} foot="ตัวเลขนี้คือความจริง ยอดซ้ายอาจต่ำกว่า" />
         </div>
       ) : null}
+
+      {stats ? <DailySpend rows={stats.daily} usdThb={stats.usdThb} /> : null}
 
       {stats ? (
         <div className="rounded-xl border border-line bg-surface p-4">

@@ -209,6 +209,7 @@ export async function stats(req, res, next) {
       })),
       daily: daily.rows,
       heavyUsers: heavy.rows,
+      usdThb: env.USD_THB,
       account: account && account.ok ? { balance: account.balance } : null,
     });
   } catch (err) {
