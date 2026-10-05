@@ -31,12 +31,12 @@ const makePassword = (len = 12) => {
 const field =
   "w-full rounded-lg border border-line bg-page px-3 py-2 text-sm outline-none placeholder:text-faint focus:border-brand";
 
-const dayTH = (v) =>
-  new Date(v + "T00:00:00+07:00").toLocaleDateString("th-TH", {
-    timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-  });
+const dayTH = (v) => {
+  const ymd = String(v ?? "").slice(0, 10);
+  const d = new Date(ymd + "T00:00:00+07:00");
+  if (Number.isNaN(d.getTime())) return ymd || "—";
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short" });
+};
 
 // ค่าใช้จ่ายรายวันต้องดูเทียบกันได้ด้วยสายตา ไม่ใช่ไล่อ่านตัวเลขทีละแถว
 // วันที่แพงผิดปกติคือสัญญาณว่าแคชไม่ทำงาน ซึ่งเคยเกิดมาแล้ว 12-16 ก.ย. 2569

@@ -164,7 +164,9 @@ export async function stats(req, res, next) {
       " FROM search_logs WHERE created_at > now() - interval '30 days' GROUP BY status"
     );
     const daily = await query(
-      "SELECT date_trunc('day', created_at AT TIME ZONE 'Asia/Bangkok')::date AS day," +
+      // ส่งเป็นข้อความ ไม่ใช่ date — ไดรเวอร์แปลง date เป็น Date object ตามเขตเวลาของเครื่อง
+      // แล้วหน้าเว็บได้ ISO ที่เลื่อนไปหนึ่งวันถ้าเครื่องไม่ใช่ UTC (ตอนนี้ UTC จึงบังเอิญรอด)
+      "SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM-DD') AS day," +
       " count(*)::int AS searches," +
       " count(*) FILTER (WHERE status = 'cached')::int AS cached," +
       " COALESCE(sum(api_cost), 0)::float AS cost" +
